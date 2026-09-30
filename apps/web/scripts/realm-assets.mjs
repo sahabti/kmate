@@ -44,4 +44,11 @@ for (const e of manifest.entries) {
 const byId = Object.fromEntries(out.entries.map((e) => [e.id, e]));
 for (const e of out.entries) if (e.animsLike && byId[e.animsLike]) e.anims = byId[e.animsLike].anims;
 writeFileSync(join(outDir, "index.json"), JSON.stringify(out));
+if (copied === 0) {
+  // Directory present but none of the manifest files were in it: same as no assets.
+  writeFileSync(join(outDir, "index.json"), JSON.stringify({ available: false, reason: `no manifest files found under ${assetsDir}` }));
+  console.log(`[realm-assets] no sprites found under ${assetsDir}; Realm View will show the placeholder.`);
+  process.exit(0);
+}
+
 console.log(`[realm-assets] copied ${copied} files (${missing} missing) from ${assetsDir} → public/realm`);

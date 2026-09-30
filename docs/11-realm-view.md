@@ -188,9 +188,13 @@ shipped in a public npm package. Therefore:
    `../../assets`) into `apps/web/public/realm/` (also git-ignored) and writes
    `public/realm/index.json`. If the directory is missing the build still succeeds and
    the Realm route shows an "assets not installed" placeholder.
-3. Container images built from a machine with the assets include them; those images
-   must stay in a **private registry** (your Artifact Registry is fine). A public
-   community image would ship without the art and with the placeholder.
+3. Container images: `deploy/docker/hub.Dockerfile` copies `assets/` into the web build
+   stage when it is present in the build context (`COPY .gitignore assets* /realm-assets/`
+   with `KMATE_ASSETS_DIR=/realm-assets`), so `make images` on a machine that has the
+   packs bakes the 69 referenced sprites (about 550 KB) into the bundle. Without the
+   packs the build still succeeds and the Realm route shows the placeholder. Images
+   built **with** the art must stay in a **private registry**, since the licence
+   forbids redistribution.
 4. Attribution "Art: Cute Fantasy by Kenmi" in the legend panel.
 
 ## 7. Data flow

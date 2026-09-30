@@ -105,10 +105,23 @@ For a real deployment on GKE behind a private gateway, see
 ### Realm View
 
 The pixel-art cluster map is rendered from commercial art packs that cannot be
-redistributed, so they are not in this repository. Point `KMATE_ASSETS_DIR` at your
-own copy of the [Cute Fantasy](https://kenmi-art.itch.io/cute-fantasy-rpg) packs and
-run `pnpm realm:assets`. Without them the rest of KMate works normally and the Realm
-route shows a placeholder.
+redistributed, so they are not in this repository. Without them the rest of KMate
+works normally and the Realm route shows a placeholder.
+
+To enable it, buy the [Cute Fantasy](https://kenmi-art.itch.io/cute-fantasy-rpg)
+packs, unpack them anywhere, and point the build at them:
+
+```bash
+cd apps/web
+KMATE_ASSETS_DIR=/path/to/cute-fantasy pnpm realm:assets   # copies the ~69 sprites it needs
+```
+
+Or drop the packs in `assets/` at the repo root, which is the default location and is
+git-ignored. `pnpm dev` and `pnpm build` pick them up automatically from there.
+
+Container builds work the same way: `make images` bakes the sprites into the hub
+image when the packs are in the build context. Keep such images in a private
+registry, since the licence forbids redistribution.
 
 ## Security
 
