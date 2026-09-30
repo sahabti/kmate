@@ -1,0 +1,116 @@
+{{- if .Values.rbac.read }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kmate-agent-reader
+  labels: {{- include "kmate-agent.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics", "/healthz", "/version", "/livez", "/readyz"]
+  verbs: ["get"]
+{{- if not .Values.rbac.secretsRead }}
+# NOTE: Kubernetes RBAC is additive; to truly exclude secrets set rbac.read=false and
+# supply your own reader role. This flag only controls whether the agent *asks* for secrets.
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kmate-agent-reader
+  labels: {{- include "kmate-agent.labels" . | nindent 4 }}
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kmate-agent-reader }
+subjects:
+- kind: ServiceAccount
+  name: kmate-agent
+  namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.rbac.write }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kmate-agent-writer
+  labels: {{- include "kmate-agent.labels" . | nindent 4 }}
+rules:
+- apiGroups: ["", "apps", "batch", "autoscaling", "networking.k8s.io", "policy", "gateway.networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments/scale", "statefulsets/scale", "replicasets/scale"]
+  verbs: ["update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kmate-agent-writer
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kmate-agent-writer }
+subjects:
+- { kind: ServiceAccount, name: kmate-agent, namespace: {{ .Release.Namespace }} }
+{{- end }}
+{{- if .Values.rbac.exec }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kmate-agent-exec
+rules:
+- apiGroups: [""]
+  resources: ["pods/exec", "pods/attach", "pods/portforward"]
+  verbs: ["create", "get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kmate-agent-exec
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kmate-agent-exec }
+subjects:
+- { kind: ServiceAccount, name: kmate-agent, namespace: {{ .Release.Namespace }} }
+{{- end }}
+{{- if .Values.rbac.impersonate }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kmate-agent-impersonator
+rules:
+- apiGroups: [""]
+  resources: ["users", "groups", "serviceaccounts"]
+  verbs: ["impersonate"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["userextras/*"]
+  verbs: ["impersonate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kmate-agent-impersonator
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kmate-agent-impersonator }
+subjects:
+- { kind: ServiceAccount, name: kmate-agent, namespace: {{ .Release.Namespace }} }
+{{- end }}
+---
+# The agent stores its issued certificate in its own secret.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kmate-agent-self
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["kmate-agent-identity"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kmate-agent-self
+  namespace: {{ .Release.Namespace }}
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: kmate-agent-self }
+subjects:
+- { kind: ServiceAccount, name: kmate-agent, namespace: {{ .Release.Namespace }} }

@@ -1,0 +1,63 @@
+image:
+  repository: kmate/hub
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 1   # SQLite mode supports exactly one replica (phase 5: Postgres for more)
+
+# Public URL browsers use (OIDC redirects, enrollment commands shown in the UI)
+publicUrl: "https://kmate.example.com"
+# Address agents should dial. For agents in the same cluster the in-cluster service is enough.
+agentPublicAddr: ""   # default: <release>.<namespace>.svc.cluster.local:9090
+
+# TLS: when terminated by an ingress/gateway in front of the hub, leave insecure=true
+# (plaintext inside the cluster). Set false and provide tls.secretName to terminate in the hub.
+insecure: true
+tls:
+  secretName: ""
+
+admin:
+  email: admin@kmate.local
+  # Leave empty to generate a random password on first install (stored in a Secret, printed by NOTES).
+  password: ""
+  existingSecret: ""   # keys: adminPassword, jwtSecret
+
+corsOrigins: "" # extra origins, comma separated (tauri://localhost etc. are always allowed)
+logLevel: info
+
+persistence:
+  enabled: true
+  size: 2Gi
+  storageClass: ""
+  accessMode: ReadWriteOnce
+
+service:
+  type: ClusterIP
+  clientPort: 8080
+  agentPort: 9090
+  metricsPort: 9091
+
+# Istio VirtualService (optional)
+istio:
+  enabled: false
+  host: ""                 # e.g. kmate.dev-internal.example.com
+  gateway: ""              # e.g. istio-system/dev-internal-gateway
+  timeout: 3600s           # long: watches, logs and terminals are long-lived streams
+  exposeAgentPort: false   # also route <host>:9090? (agents outside the cluster need gRPC; usually a separate TLS passthrough)
+
+# Plain Ingress (optional)
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecret: ""
+  annotations: {}
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: "1",  memory: 1Gi }
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}

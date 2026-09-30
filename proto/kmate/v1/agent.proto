@@ -1,0 +1,268 @@
+syntax = "proto3";
+
+package kmate.v1;
+
+import "kmate/v1/catalog.proto";
+import "kmate/v1/common.proto";
+
+option go_package = "github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1";
+
+// AgentService is served by the Hub and called by in-cluster agents.
+service AgentService {
+  // Exchange a one-time enrollment token for an agent identity and certificate.
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  // Long-lived multiplexed tunnel. Agent dials, Hub answers.
+  rpc Tunnel(stream Frame) returns (stream Frame);
+}
+
+message EnrollRequest {
+  string enrollment_token = 1;
+  ClusterInfo cluster_info = 2;
+  bytes csr_pem = 3; // optional; if empty hub generates key+cert (dev)
+}
+
+message EnrollResponse {
+  string agent_id = 1;
+  string cluster_id = 2;
+  bytes cert_pem = 3;
+  bytes key_pem = 4;   // only when csr_pem was empty
+  bytes ca_pem = 5;
+  string agent_token = 6; // bearer used in dev/plaintext mode instead of mTLS
+}
+
+message Frame {
+  uint32 stream_id = 1;
+  oneof payload {
+    Hello hello = 10;
+    Heartbeat heartbeat = 11;
+    WindowUpdate window_update = 12;
+    Close close = 13;
+    Request request = 20;
+    Response response = 21;
+    WatchEvent watch_event = 22;
+    Data data = 23;
+    Resize resize = 24;
+    CatalogSnapshot catalog = 30;
+  }
+}
+
+message Hello {
+  string agent_id = 1;
+  string agent_token = 2;
+  string version = 3;
+  repeated string capabilities = 4;
+  ClusterInfo cluster_info = 5;
+}
+
+message Heartbeat {
+  ClusterInfo cluster_info = 1;
+}
+
+message WindowUpdate {
+  uint32 credits = 1; // bytes
+}
+
+message Close {
+  Error error = 1;
+}
+
+message Request {
+  Identity identity = 1;
+  string request_id = 2;
+  oneof kind {
+    DiscoverRequest discover = 10;
+    ListRequest list = 11;
+    GetRequest get = 12;
+    WatchRequest watch = 13;
+    ApplyRequest apply = 14;
+    PatchRequest patch = 15;
+    DeleteRequest delete = 16;
+    ScaleRequest scale = 17;
+    RolloutRestartRequest rollout_restart = 18;
+    LogsRequest logs = 19;
+    ExecRequest exec = 20;
+    PortForwardRequest port_forward = 21;
+    CatalogRequest catalog = 22;
+    HelmListRequest helm_list = 23;
+    MetricsRequest metrics = 24;
+    ClusterInfoRequest cluster_info = 25;
+    HelmGetRequest helm_get = 26;
+  }
+}
+
+message Response {
+  Error error = 1;
+  oneof kind {
+    DiscoverResponse discover = 10;
+    ListResponse list = 11;
+    GetResponse get = 12;
+    ApplyResponse apply = 14;
+    PatchResponse patch = 15;
+    DeleteResponse delete = 16;
+    ScaleResponse scale = 17;
+    RolloutRestartResponse rollout_restart = 18;
+    CatalogResponse catalog = 22;
+    HelmListResponse helm_list = 23;
+    MetricsResponse metrics = 24;
+    ClusterInfoResponse cluster_info = 25;
+    HelmGetResponse helm_get = 26;
+  }
+}
+
+// ---- resource requests ----
+
+message DiscoverRequest {}
+message DiscoverResponse { repeated APIResource resources = 1; }
+
+message ListRequest {
+  GVR gvr = 1;
+  ListOptions options = 2;
+}
+message ListResponse {
+  repeated KubeObject items = 1;
+  string resource_version = 2;
+  string continue = 3;
+}
+
+message GetRequest { ObjectRef ref = 1; }
+message GetResponse { KubeObject object = 1; }
+
+message WatchRequest {
+  GVR gvr = 1;
+  ListOptions options = 2;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_SYNC = 1;     // initial batch complete marker (object empty) or initial items
+  EVENT_TYPE_ADDED = 2;
+  EVENT_TYPE_MODIFIED = 3;
+  EVENT_TYPE_DELETED = 4;
+  EVENT_TYPE_ERROR = 5;
+}
+
+message WatchEvent {
+  EventType type = 1;
+  KubeObject object = 2;
+  Error error = 3;
+  bool synced = 4; // true on the SYNC marker after initial list
+}
+
+message ApplyRequest {
+  KubeObject object = 1;      // json body; gvr derived from apiVersion/kind
+  bool force = 2;
+  string field_manager = 3;
+  bool dry_run = 4;
+}
+message ApplyResponse { KubeObject object = 1; }
+
+message PatchRequest {
+  ObjectRef ref = 1;
+  string patch_type = 2; // "application/merge-patch+json" | "application/json-patch+json" | "application/strategic-merge-patch+json"
+  bytes patch = 3;
+}
+message PatchResponse { KubeObject object = 1; }
+
+message DeleteRequest {
+  ObjectRef ref = 1;
+  string propagation_policy = 2;
+  int64 grace_period_seconds = 3;
+}
+message DeleteResponse {}
+
+message ScaleRequest {
+  ObjectRef ref = 1;
+  int32 replicas = 2;
+}
+message ScaleResponse { int32 replicas = 1; }
+
+message RolloutRestartRequest { ObjectRef ref = 1; }
+message RolloutRestartResponse {}
+
+message LogsRequest {
+  string namespace = 1;
+  string pod = 2;
+  string container = 3;
+  bool follow = 4;
+  int64 tail_lines = 5;
+  int64 since_seconds = 6;
+  bool timestamps = 7;
+  bool previous = 8;
+  bool all_containers = 9;
+}
+
+message ExecRequest {
+  string namespace = 1;
+  string pod = 2;
+  string container = 3;
+  repeated string command = 4;
+  bool tty = 5;
+  bool stdin = 6;
+  int32 cols = 7;
+  int32 rows = 8;
+}
+
+message PortForwardRequest {
+  string namespace = 1;
+  string pod = 2;
+  int32 port = 3;
+}
+
+message Data {
+  bytes bytes = 1;
+  int32 channel = 2; // 0 stdin, 1 stdout, 2 stderr (exec); 0 for logs / port-forward
+  bool eof = 3;
+}
+
+message Resize {
+  int32 cols = 1;
+  int32 rows = 2;
+}
+
+message CatalogRequest {}
+message CatalogResponse { Catalog catalog = 1; }
+message CatalogSnapshot { Catalog catalog = 1; }
+
+message HelmListRequest { string namespace = 1; }
+message HelmRelease {
+  string name = 1;
+  string namespace = 2;
+  int32 revision = 3;
+  string status = 4;
+  string chart = 5;
+  string chart_version = 6;
+  string app_version = 7;
+  string updated = 8;
+}
+message HelmListResponse { repeated HelmRelease releases = 1; }
+
+message HelmGetRequest {
+  string namespace = 1;
+  string name = 2;
+  int32 revision = 3; // 0 = latest
+}
+message HelmGetResponse {
+  HelmRelease release = 1;
+  string values_yaml = 2;        // user-supplied values (config)
+  string chart_values_yaml = 3;  // chart defaults
+  string manifest = 4;           // rendered manifest
+  string notes = 5;
+  repeated HelmRelease history = 6; // all revisions, newest first
+  string description = 7;
+}
+
+message MetricsRequest {
+  string kind = 1;       // "pods" | "nodes"
+  string namespace = 2;
+}
+message MetricSample {
+  string namespace = 1;
+  string name = 2;
+  string container = 3;
+  int64 cpu_millicores = 4;
+  int64 memory_bytes = 5;
+}
+message MetricsResponse { repeated MetricSample samples = 1; }
+
+message ClusterInfoRequest {}
+message ClusterInfoResponse { ClusterInfo info = 1; }

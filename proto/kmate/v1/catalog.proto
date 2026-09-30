@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package kmate.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1";
+
+enum Health {
+  HEALTH_UNSPECIFIED = 0;
+  HEALTH_HEALTHY = 1;
+  HEALTH_DEGRADED = 2;
+  HEALTH_DOWN = 3;
+  HEALTH_UNKNOWN = 4;
+  HEALTH_NO_SELECTOR = 5;
+}
+
+message ServicePort {
+  string name = 1;
+  int32 port = 2;
+  string target_port = 3;
+  string protocol = 4;
+  string app_protocol = 5;
+  int32 node_port = 6;
+}
+
+message WorkloadRef {
+  string kind = 1;
+  string name = 2;
+  int32 ready = 3;
+  int32 desired = 4;
+}
+
+message EndpointStats {
+  int32 ready = 1;
+  int32 not_ready = 2;
+}
+
+// One way a service is reachable.
+message Exposure {
+  string kind = 1;          // Ingress | HTTPRoute | GRPCRoute | LoadBalancer | NodePort | ExternalName
+  string name = 2;          // name of the Ingress/Route object (empty for LB/NodePort)
+  string class = 3;         // ingress class / gateway name
+  string host = 4;
+  string path = 5;
+  string path_type = 6;
+  bool tls = 7;
+  string url = 8;
+  repeated string addresses = 9;  // load balancer IPs / hostnames
+  int32 port = 10;
+}
+
+message ProbeResult {
+  int32 status_code = 1;
+  int64 latency_ms = 2;
+  string error = 3;
+  google.protobuf.Timestamp checked_at = 4;
+}
+
+message CatalogEntry {
+  string id = 1;                       // namespace/name
+  string namespace = 2;
+  string name = 3;
+  string type = 4;                     // ClusterIP | NodePort | LoadBalancer | ExternalName | Headless
+  repeated ServicePort ports = 5;
+  map<string, string> selector = 6;
+  repeated WorkloadRef workloads = 7;
+  EndpointStats endpoints = 8;
+  Health health = 9;
+  repeated Exposure exposures = 10;
+  map<string, string> labels = 11;
+  map<string, string> annotations = 12;
+  string helm_release = 13;
+  string group = 14;
+  string description = 15;
+  string icon = 16;
+  bool system = 17;                    // lives in a system namespace
+  google.protobuf.Timestamp last_change = 18;
+  map<string, ProbeResult> probes = 19; // keyed by exposure url
+}
+
+message Catalog {
+  int64 version = 1;
+  google.protobuf.Timestamp generated_at = 2;
+  repeated CatalogEntry entries = 3;
+}

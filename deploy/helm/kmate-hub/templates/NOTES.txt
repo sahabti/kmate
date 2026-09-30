@@ -1,0 +1,12 @@
+KMate Hub installed in namespace {{ .Release.Namespace }}.
+
+UI / API:   {{ .Values.publicUrl }}
+Agents dial: {{ include "kmate-hub.agentAddr" . }}
+
+Admin login: {{ .Values.admin.email }}
+Password:    kubectl -n {{ .Release.Namespace }} get secret {{ include "kmate-hub.secretName" . }} -o jsonpath='{.data.adminPassword}' | base64 -d
+
+Install an agent in this cluster:
+  helm upgrade --install kmate-agent deploy/helm/kmate-agent -n {{ .Release.Namespace }} \
+    --set hub.addr={{ include "kmate-hub.agentAddr" . }} --set hub.insecure={{ .Values.insecure }} \
+    --set enrollment.token=<token from "Add cluster" in the UI>

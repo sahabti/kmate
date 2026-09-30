@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kmate-agent
+description: In-cluster agent for KMate, the agent-based Kubernetes IDE
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

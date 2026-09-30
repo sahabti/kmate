@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package kmate.v1;
+
+option go_package = "github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1";
+
+// Identity of the end user on whose behalf a request is executed.
+// The agent uses it for Kubernetes impersonation when permitted.
+message Identity {
+  string user = 1;
+  repeated string groups = 2;
+  map<string, string> extra = 3;
+}
+
+// Group/Version/Resource of a Kubernetes API resource.
+message GVR {
+  string group = 1;    // "" for core
+  string version = 2;  // "v1"
+  string resource = 3; // "pods"
+}
+
+message ObjectRef {
+  GVR gvr = 1;
+  string namespace = 2;
+  string name = 3;
+}
+
+message ListOptions {
+  string namespace = 1;        // "" = all namespaces
+  string label_selector = 2;
+  string field_selector = 3;
+  int32 limit = 4;
+  string continue = 5;
+  bool columns_only = 6;       // return a trimmed projection suitable for tables
+}
+
+// A Kubernetes object encoded as JSON, plus extracted metadata for cheap indexing.
+message KubeObject {
+  bytes json = 1;
+  string api_version = 2;
+  string kind = 3;
+  string namespace = 4;
+  string name = 5;
+  string uid = 6;
+  string resource_version = 7;
+}
+
+message Error {
+  int32 code = 1;      // HTTP-ish status (403, 404, 500...)
+  string reason = 2;   // Kubernetes StatusReason when available
+  string message = 3;
+}
+
+// Describes one API resource discovered on the cluster.
+message APIResource {
+  GVR gvr = 1;
+  string kind = 2;
+  bool namespaced = 3;
+  repeated string verbs = 4;
+  repeated string short_names = 5;
+  repeated string categories = 6;
+}
+
+message ClusterInfo {
+  string name = 1;
+  string kubernetes_version = 2;
+  string platform = 3;         // e.g. "gke", "eks", "kind", "k3s", "unknown"
+  string cluster_uid = 4;      // kube-system namespace UID
+  int32 node_count = 5;
+  int32 pod_count = 6;
+  int32 namespace_count = 7;
+  int64 catalog_version = 8;
+  string agent_version = 9;
+}

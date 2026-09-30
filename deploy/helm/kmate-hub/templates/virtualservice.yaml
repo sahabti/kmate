@@ -1,0 +1,18 @@
+{{- if .Values.istio.enabled }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ include "kmate-hub.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "kmate-hub.labels" . | nindent 4 }}
+spec:
+  hosts: [{{ required "istio.host is required" .Values.istio.host | quote }}]
+  gateways: [{{ required "istio.gateway is required" .Values.istio.gateway | quote }}]
+  http:
+  - match: [{ uri: { prefix: / } }]
+    route:
+    - destination:
+        host: {{ include "kmate-hub.name" . }}
+        port: { number: {{ .Values.service.clientPort }} }
+    timeout: {{ .Values.istio.timeout }}
+{{- end }}

@@ -1,0 +1,14 @@
+bin/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+node_modules/
+apps/web/dist/
+internal/hub/web/dist/*
+!internal/hub/web/dist/index.html
+.DS_Store
+apps/web/node_modules/
+.kmate-agent-identity*.json
+assets/
+apps/web/public/realm/
