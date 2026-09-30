@@ -1,0 +1,14 @@
+# Keep the build context small. NOTE: assets/ is deliberately NOT ignored — when the
+# Cute Fantasy packs are present they get baked into the hub image's Realm View.
+.git
+**/node_modules
+bin/
+apps/web/dist/
+apps/web/public/realm/
+internal/hub/web/dist/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+.kmate-agent-identity*.json
+.DS_Store
