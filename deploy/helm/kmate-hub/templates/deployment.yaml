@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kmate-hub.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "kmate-hub.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy: { type: Recreate }   # single writer on the SQLite volume
+  selector:
+    matchLabels: {{- include "kmate-hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "kmate-hub.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: hub
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - { name: KMATE_DB_URL, value: "sqlite:///data/kmate.db" }
+        - { name: KMATE_CLIENT_ADDR, value: ":{{ .Values.service.clientPort }}" }
+        - { name: KMATE_AGENT_ADDR, value: ":{{ .Values.service.agentPort }}" }
+        - { name: KMATE_METRICS_ADDR, value: ":{{ .Values.service.metricsPort }}" }
+        - { name: KMATE_PUBLIC_URL, value: {{ .Values.publicUrl | quote }} }
+        - { name: KMATE_AGENT_PUBLIC_ADDR, value: {{ include "kmate-hub.agentAddr" . | quote }} }
+        - { name: KMATE_INSECURE, value: {{ .Values.insecure | quote }} }
+        - { name: KMATE_LOG_LEVEL, value: {{ .Values.logLevel | quote }} }
+        - { name: KMATE_CORS_ORIGINS, value: {{ printf "%s,%s" .Values.publicUrl .Values.corsOrigins | trimSuffix "," | quote }} }
+        - { name: KMATE_ADMIN_EMAIL, value: {{ .Values.admin.email | quote }} }
+        - name: KMATE_ADMIN_PASSWORD
+          valueFrom: { secretKeyRef: { name: {{ include "kmate-hub.secretName" . }}, key: adminPassword } }
+        - name: KMATE_JWT_SECRET
+          valueFrom: { secretKeyRef: { name: {{ include "kmate-hub.secretName" . }}, key: jwtSecret } }
+        {{- if and (not .Values.insecure) .Values.tls.secretName }}
+        - { name: KMATE_TLS_CERT, value: /etc/kmate/tls/tls.crt }
+        - { name: KMATE_TLS_KEY,  value: /etc/kmate/tls/tls.key }
+        {{- end }}
+        ports:
+        - { name: http,    containerPort: {{ .Values.service.clientPort }} }
+        - { name: grpc,    containerPort: {{ .Values.service.agentPort }} }
+        - { name: metrics, containerPort: {{ .Values.service.metricsPort }} }
+        livenessProbe:  { httpGet: { path: /healthz, port: metrics }, initialDelaySeconds: 5 }
+        readinessProbe: { httpGet: { path: /healthz, port: metrics }, initialDelaySeconds: 3 }
+        resources: {{- toYaml .Values.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: ["ALL"] }
+        volumeMounts:
+        - { name: data, mountPath: /data }
+        {{- if and (not .Values.insecure) .Values.tls.secretName }}
+        - { name: tls, mountPath: /etc/kmate/tls, readOnly: true }
+        {{- end }}
+      volumes:
+      - name: data
+        {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim: { claimName: {{ include "kmate-hub.name" . }}-data }
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- if and (not .Values.insecure) .Values.tls.secretName }}
+      - name: tls
+        secret: { secretName: {{ .Values.tls.secretName }} }
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

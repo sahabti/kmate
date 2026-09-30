@@ -1,0 +1,16 @@
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kmate-hub.name" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "kmate-hub.labels" . | nindent 4 }}
+spec:
+  accessModes: [{{ .Values.persistence.accessMode }}]
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

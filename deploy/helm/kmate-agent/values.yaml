@@ -1,0 +1,41 @@
+image:
+  repository: kmate/agent
+  tag: ""          # defaults to chart appVersion
+  pullPolicy: IfNotPresent
+
+hub:
+  addr: ""         # REQUIRED e.g. kmate.example.com:9090
+  insecure: false  # plaintext gRPC (dev only)
+  caBundle: ""     # optional PEM if hub uses a private CA
+
+enrollment:
+  token: ""        # REQUIRED on first install (kmt_enr_...). Ignored once the agent has a cert.
+  existingSecret: ""  # use a pre-created secret with keys hubAddr, enrollmentToken
+
+clusterName: ""    # display name, defaults to cluster UID
+
+# Scope informers to these namespaces (empty = all)
+namespaces: []
+
+catalog:
+  # Namespaces collapsed under "System" on the dashboard. A trailing * matches a prefix.
+  hideNamespaces: [kube-system, kube-public, kube-node-lease, kmate-system, istio-system, "gke-managed-*", gmp-system, gmp-public, gke-gmp-system, config-management-system, cert-manager, ingress-nginx]
+  probe: false     # in-cluster reachability probes of exposure URLs
+
+rbac:
+  read: true
+  secretsRead: true
+  write: false
+  exec: false
+  impersonate: false
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits:   { cpu: "1",  memory: 1Gi }
+
+logLevel: info
+networkPolicy:
+  enabled: false
+nodeSelector: {}
+tolerations: []
+affinity: {}

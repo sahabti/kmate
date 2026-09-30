@@ -1,0 +1,24 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/kmate-dev/kmate/gen/go
+  disable:
+    - file_option: go_package_prefix
+      module: buf.build/protocolbuffers/wellknowntypes
+plugins:
+  # Go
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: gen/go
+    opt: paths=source_relative
+  - remote: buf.build/connectrpc/go
+    out: gen/go
+    opt: paths=source_relative
+  # TypeScript (Connect-ES v2 / protobuf-es v2)
+  - remote: buf.build/bufbuild/es
+    out: apps/web/src/gen
+    opt: target=ts

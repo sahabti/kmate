@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package kmate.v1;
+
+import "google/protobuf/timestamp.proto";
+import "kmate/v1/common.proto";
+
+option go_package = "github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1";
+
+// HubService: account, clusters, tokens. Called by clients.
+service HubService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc Me(MeRequest) returns (MeResponse);
+  rpc ListClusters(ListClustersRequest) returns (ListClustersResponse);
+  rpc GetCluster(GetClusterRequest) returns (GetClusterResponse);
+  rpc CreateCluster(CreateClusterRequest) returns (CreateClusterResponse);
+  rpc DeleteCluster(DeleteClusterRequest) returns (DeleteClusterResponse);
+  rpc WatchClusters(WatchClustersRequest) returns (stream ClusterEvent);
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+message LoginResponse {
+  string token = 1;
+  User user = 2;
+}
+
+message LogoutRequest {}
+message LogoutResponse {}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  string role = 4; // admin | operator | viewer
+}
+
+message MeRequest {}
+message MeResponse { User user = 1; }
+
+enum ClusterStatus {
+  CLUSTER_STATUS_UNSPECIFIED = 0;
+  CLUSTER_STATUS_PENDING = 1;   // created, agent never connected
+  CLUSTER_STATUS_ONLINE = 2;
+  CLUSTER_STATUS_OFFLINE = 3;
+}
+
+message Cluster {
+  string id = 1;
+  string name = 2;
+  ClusterStatus status = 3;
+  ClusterInfo info = 4;
+  google.protobuf.Timestamp last_heartbeat = 5;
+  google.protobuf.Timestamp created_at = 6;
+  bool shared_identity = 7;  // agent cannot impersonate
+  repeated string capabilities = 8;
+}
+
+message ListClustersRequest {}
+message ListClustersResponse { repeated Cluster clusters = 1; }
+
+message GetClusterRequest { string id = 1; }
+message GetClusterResponse { Cluster cluster = 1; }
+
+message CreateClusterRequest { string name = 1; }
+message CreateClusterResponse {
+  Cluster cluster = 1;
+  string enrollment_token = 2;
+  string helm_command = 3;
+  string agent_addr = 4;
+}
+
+message DeleteClusterRequest { string id = 1; }
+message DeleteClusterResponse {}
+
+message WatchClustersRequest {}
+message ClusterEvent {
+  string type = 1; // ADDED | MODIFIED | DELETED
+  Cluster cluster = 2;
+}
+
+message AuditEvent {
+  string id = 1;
+  google.protobuf.Timestamp time = 2;
+  string user = 3;
+  string cluster_id = 4;
+  string action = 5;
+  string target = 6;
+  string result = 7;
+}
+message ListAuditEventsRequest {
+  string cluster_id = 1;
+  int32 limit = 2;
+}
+message ListAuditEventsResponse { repeated AuditEvent events = 1; }

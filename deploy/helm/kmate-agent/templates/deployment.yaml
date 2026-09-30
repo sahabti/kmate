@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kmate-agent
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "kmate-agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app.kubernetes.io/name: kmate-agent }
+  template:
+    metadata:
+      labels: {{- include "kmate-agent.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: kmate-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+      - name: agent
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args: ["--identity-secret", "kmate-agent-identity"]
+        env:
+        - { name: KMATE_NAMESPACE, valueFrom: { fieldRef: { fieldPath: metadata.namespace } } }
+        - name: KMATE_HUB_ADDR
+          valueFrom: { secretKeyRef: { name: {{ .Values.enrollment.existingSecret | default "kmate-agent-enrollment" }}, key: hubAddr } }
+        - name: KMATE_ENROLLMENT_TOKEN
+          valueFrom: { secretKeyRef: { name: {{ .Values.enrollment.existingSecret | default "kmate-agent-enrollment" }}, key: enrollmentToken, optional: true } }
+        - { name: KMATE_CLUSTER_NAME, value: {{ .Values.clusterName | quote }} }
+        - { name: KMATE_NAMESPACES, value: {{ join "," .Values.namespaces | quote }} }
+        - { name: KMATE_INSECURE_HUB, value: {{ .Values.hub.insecure | quote }} }
+        - { name: KMATE_LOG_LEVEL, value: {{ .Values.logLevel | quote }} }
+        - { name: KMATE_CATALOG_HIDE_NAMESPACES, value: {{ join "," .Values.catalog.hideNamespaces | quote }} }
+        - { name: KMATE_CATALOG_PROBE, value: {{ .Values.catalog.probe | quote }} }
+        - { name: KMATE_CAN_WRITE, value: {{ .Values.rbac.write | quote }} }
+        - { name: KMATE_CAN_EXEC, value: {{ .Values.rbac.exec | quote }} }
+        - { name: KMATE_CAN_IMPERSONATE, value: {{ .Values.rbac.impersonate | quote }} }
+        {{- if .Values.hub.caBundle }}
+        - { name: KMATE_HUB_CA_FILE, value: /etc/kmate/ca.crt }
+        {{- end }}
+        ports:
+        - { name: http, containerPort: 8082 }
+        livenessProbe:  { httpGet: { path: /healthz, port: http }, initialDelaySeconds: 5 }
+        readinessProbe: { httpGet: { path: /readyz,  port: http }, initialDelaySeconds: 5 }
+        resources: {{- toYaml .Values.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: { drop: ["ALL"] }
+        {{- if .Values.hub.caBundle }}
+        volumeMounts:
+        - { name: ca, mountPath: /etc/kmate, readOnly: true }
+        {{- end }}
+      {{- if .Values.hub.caBundle }}
+      volumes:
+      - name: ca
+        secret: { secretName: kmate-agent-enrollment, items: [{ key: ca.crt, path: ca.crt }] }
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}

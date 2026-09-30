@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package kmate.v1;
+
+import "kmate/v1/agent.proto";
+import "kmate/v1/catalog.proto";
+import "kmate/v1/common.proto";
+
+option go_package = "github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1";
+
+// ClusterService: everything that touches a cluster. Called by clients,
+// relayed by the Hub to the cluster's agent.
+service ClusterService {
+  rpc Discover(ClusterDiscoverRequest) returns (DiscoverResponse);
+  rpc List(ClusterListRequest) returns (ListResponse);
+  rpc Get(ClusterGetRequest) returns (GetResponse);
+  rpc Watch(ClusterWatchRequest) returns (stream WatchEvent);
+  rpc Apply(ClusterApplyRequest) returns (ApplyResponse);
+  rpc Patch(ClusterPatchRequest) returns (PatchResponse);
+  rpc Delete(ClusterDeleteRequest) returns (DeleteResponse);
+  rpc Scale(ClusterScaleRequest) returns (ScaleResponse);
+  rpc RolloutRestart(ClusterRolloutRestartRequest) returns (RolloutRestartResponse);
+  rpc Logs(ClusterLogsRequest) returns (stream Data);
+  rpc GetCatalog(ClusterCatalogRequest) returns (CatalogResponse);
+  rpc WatchCatalog(ClusterCatalogRequest) returns (stream Catalog);
+  rpc ListHelmReleases(ClusterHelmListRequest) returns (HelmListResponse);
+  rpc GetHelmRelease(ClusterHelmGetRequest) returns (HelmGetResponse);
+  rpc GetMetrics(ClusterMetricsRequest) returns (MetricsResponse);
+}
+
+message ClusterDiscoverRequest { string cluster_id = 1; }
+message ClusterListRequest { string cluster_id = 1; GVR gvr = 2; ListOptions options = 3; }
+message ClusterGetRequest { string cluster_id = 1; ObjectRef ref = 2; }
+message ClusterWatchRequest { string cluster_id = 1; GVR gvr = 2; ListOptions options = 3; }
+message ClusterApplyRequest { string cluster_id = 1; ApplyRequest apply = 2; }
+message ClusterPatchRequest { string cluster_id = 1; PatchRequest patch = 2; }
+message ClusterDeleteRequest { string cluster_id = 1; DeleteRequest delete = 2; }
+message ClusterScaleRequest { string cluster_id = 1; ScaleRequest scale = 2; }
+message ClusterRolloutRestartRequest { string cluster_id = 1; RolloutRestartRequest restart = 2; }
+message ClusterLogsRequest { string cluster_id = 1; LogsRequest logs = 2; }
+message ClusterCatalogRequest { string cluster_id = 1; }
+message ClusterHelmListRequest { string cluster_id = 1; string namespace = 2; }
+message ClusterHelmGetRequest { string cluster_id = 1; HelmGetRequest helm = 2; }
+message ClusterMetricsRequest { string cluster_id = 1; MetricsRequest metrics = 2; }
