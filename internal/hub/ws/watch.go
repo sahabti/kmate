@@ -156,6 +156,21 @@ func (s *watchSession) subscribe(cmd watchCmd) {
 		s.send(watchMsg{ID: cmd.ID, Type: "ERROR", Error: &wsError{Code: 400, Message: "gvr.resource is required"}})
 		return
 	}
+	ns := ""
+	if cmd.Options != nil {
+		ns = cmd.Options.Namespace
+	}
+	if err := auth.AuthorizeCluster(s.ctx, s.clusterID, false, ns); err != nil {
+		p := auth.FromContext(s.ctx)
+		email := ""
+		if p != nil {
+			email = p.Email
+		}
+		_ = s.h.store.Audit(s.ctx, store.AuditEvent{User: email, ClusterID: s.clusterID, Action: "watch",
+			Target: cmd.GVR.Resource + " ns=" + ns, Result: "denied: " + err.Error()})
+		s.send(watchMsg{ID: cmd.ID, Type: "ERROR", Error: &wsError{Code: 403, Message: err.Error()}})
+		return
+	}
 	s.mu.Lock()
 	if _, dup := s.subs[cmd.ID]; dup {
 		s.mu.Unlock()
@@ -365,6 +380,10 @@ func (s *watchSession) reserve(id string) (context.Context, bool) {
 // subscribeCatalog streams the cluster's Service Catalog: stored snapshot (or a live
 // fetch when the agent is online and nothing is stored), then every update.
 func (s *watchSession) subscribeCatalog(id string) {
+	if err := auth.AuthorizeCluster(s.ctx, s.clusterID, false); err != nil {
+		s.send(watchMsg{ID: id, Type: "ERROR", Error: &wsError{Code: 403, Message: err.Error()}})
+		return
+	}
 	ctx, ok := s.reserve(id)
 	if !ok {
 		return
@@ -435,7 +454,11 @@ func (s *watchSession) subscribeClusters(id string) {
 			s.send(watchMsg{ID: id, Type: "CLOSED", Error: toWSError(err)})
 			return
 		}
+		pr := auth.FromContext(ctx)
 		for _, c := range cs {
+			if !pr.CanAccessCluster(c.ID) {
+				continue
+			}
 			p := c.Proto()
 			if conn, online := reg.Get(c.ID); online {
 				p.Status = kmatev1.ClusterStatus_CLUSTER_STATUS_ONLINE
@@ -452,6 +475,9 @@ func (s *watchSession) subscribeClusters(id string) {
 		for {
 			select {
 			case ev := <-sub:
+				if !pr.CanAccessCluster(ev.GetCluster().GetId()) {
+					continue
+				}
 				if !s.sendClusterEvent(id, ev) {
 					return
 				}

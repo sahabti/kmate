@@ -1,0 +1,1838 @@
+{
+  "id": "cute-fantasy",
+  "name": "Cute Fantasy",
+  "author": "Kenmi",
+  "license": "Commercial use permitted, redistribution prohibited — buy the packs to use this theme",
+  "url": "https://kenmi-art.itch.io/cute-fantasy-rpg",
+  "tileSize": 16,
+  "source": "external",
+  "font": "font.ttf",
+  "$fontSrc": "Cute_Fantasy_UI/Fonts/CuteFantasy-5x9.ttf",
+  "roles": {
+    "tile.water": {
+      "src": "Cute_Fantasy/Tiles/Water/Water_Middle_Anim_1.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0,
+        "y": 0
+      },
+      "anims": {
+        "flow": {
+          "row": 0,
+          "from": 0,
+          "to": 7,
+          "fps": 4
+        }
+      }
+    },
+    "tile.grass": {
+      "src": "Cute_Fantasy/Tiles/Grass/Grass_1_Middle.png",
+      "anchor": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "tile.path": {
+      "src": "Cute_Fantasy/Tiles/Grass/Path_Middle.png",
+      "anchor": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "tile.cliff": {
+      "src": "Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Tile.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "parts": {
+        "top.l": [
+          1,
+          0
+        ],
+        "top.c": [
+          2,
+          0
+        ],
+        "top.r": [
+          3,
+          0
+        ],
+        "mid.l": [
+          1,
+          1
+        ],
+        "mid.c": [
+          2,
+          1
+        ],
+        "mid.r": [
+          3,
+          1
+        ],
+        "bot.l": [
+          1,
+          2
+        ],
+        "bot.c": [
+          2,
+          2
+        ],
+        "bot.r": [
+          3,
+          2
+        ],
+        "wall.l": [
+          1,
+          3
+        ],
+        "wall.c": [
+          2,
+          3
+        ],
+        "wall.r": [
+          3,
+          3
+        ],
+        "wall2.l": [
+          1,
+          4
+        ],
+        "wall2.c": [
+          2,
+          4
+        ],
+        "wall2.r": [
+          3,
+          4
+        ],
+        "foot.l": [
+          1,
+          5
+        ],
+        "foot.c": [
+          2,
+          5
+        ],
+        "foot.r": [
+          3,
+          5
+        ]
+      }
+    },
+    "decor.fence": {
+      "src": "Cute_Fantasy/Outdoor decoration/Fences.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "parts": {
+        "tl": [
+          1,
+          1
+        ],
+        "tr": [
+          3,
+          1
+        ],
+        "h": [
+          2,
+          0
+        ],
+        "bl": [
+          1,
+          3
+        ],
+        "br": [
+          3,
+          3
+        ],
+        "v": [
+          0,
+          1
+        ]
+      }
+    },
+    "decor.hedge": {
+      "src": "Cute_Fantasy/Tiles/Hedge_Tiles.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "parts": {
+        "tl": [
+          1,
+          1
+        ],
+        "tr": [
+          3,
+          1
+        ],
+        "h": [
+          2,
+          0
+        ],
+        "bl": [
+          1,
+          3
+        ],
+        "br": [
+          3,
+          3
+        ],
+        "v": [
+          0,
+          1
+        ]
+      }
+    },
+    "decor.sign": [
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Signs.png",
+        "rect": {
+          "x": 0,
+          "y": 152,
+          "w": 32,
+          "h": 48
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.95
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Signs.png",
+        "rect": {
+          "x": 32,
+          "y": 152,
+          "w": 32,
+          "h": 48
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.95
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Signs.png",
+        "rect": {
+          "x": 64,
+          "y": 152,
+          "w": 32,
+          "h": 48
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.95
+        }
+      }
+    ],
+    "decor.bridge": {
+      "src": "Cute_Fantasy/Tiles/Bridge/Bridge_Stone_Horizontal.png",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 48
+      },
+      "anchor": {
+        "x": 0,
+        "y": 0.5
+      }
+    },
+    "decor.gate": {
+      "src": "Cute_Fantasy_MilitaryCamp/Palisade_Gate_Anim.png",
+      "frame": {
+        "w": 64,
+        "h": 64
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "anims": {
+        "open": {
+          "row": 0,
+          "from": 0,
+          "to": 2,
+          "fps": 6,
+          "loop": false
+        }
+      }
+    },
+    "decor.tower": {
+      "src": "Cute_Fantasy_MilitaryCamp/Lookout_Towers.png",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 72,
+        "h": 128
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "decor.flag": {
+      "src": "Cute_Fantasy_MilitaryCamp/Flags_Anim.png",
+      "frame": {
+        "w": 24,
+        "h": 24
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      },
+      "anims": {
+        "beige": {
+          "row": 0,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        },
+        "blue": {
+          "row": 1,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        },
+        "red": {
+          "row": 2,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        },
+        "orange": {
+          "row": 3,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        }
+      }
+    },
+    "decor.lantern": {
+      "src": "Cute_Fantasy/Outdoor decoration/Lantern.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    "building.deployment.t1": [
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_1_Wood_Base_Blue.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 6,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_1_Wood_Green_Red.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 6,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_1_Wood_Red_Black.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 6,
+          "h": 8,
+          "yard": 3
+        }
+      }
+    ],
+    "building.statefulset.t1": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Houses/Stone/House_1_Stone_Base_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "footprint": {
+        "w": 6,
+        "h": 8,
+        "yard": 3
+      }
+    },
+    "building.deployment.t2": [
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_2_Wood_Base_Blue.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_2_Wood_Green_Red.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_2_Wood_Red_Black.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      }
+    ],
+    "building.statefulset.t2": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Houses/Stone/House_2_Stone_Base_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "footprint": {
+        "w": 9,
+        "h": 8,
+        "yard": 3
+      }
+    },
+    "building.deployment.t3": [
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_3_Wood_Base_Blue.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_3_Wood_Green_Red.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_3_Wood_Red_Black.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 9,
+          "h": 8,
+          "yard": 3
+        }
+      }
+    ],
+    "building.statefulset.t3": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Houses/Stone/House_3_Stone_Base_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "footprint": {
+        "w": 9,
+        "h": 8,
+        "yard": 3
+      }
+    },
+    "building.deployment.t5": [
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_5_Wood_Base_Blue.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 12,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_5_Wood_Green_Red.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 12,
+          "h": 8,
+          "yard": 3
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Buildings/Buildings/Houses/Wood/House_5_Wood_Red_Black.png",
+        "anchor": {
+          "x": 0.5,
+          "y": 0.88
+        },
+        "footprint": {
+          "w": 12,
+          "h": 8,
+          "yard": 3
+        }
+      }
+    ],
+    "building.statefulset.t5": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Houses/Stone/House_5_Stone_Base_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "footprint": {
+        "w": 12,
+        "h": 8,
+        "yard": 3
+      }
+    },
+    "building.deployment.t6": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Unique_Buildings/Inn/Inn_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "footprint": {
+        "w": 15,
+        "h": 12,
+        "yard": 3
+      }
+    },
+    "building.statefulset.t6": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Unique_Buildings/Inn/Inn_Blue.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "footprint": {
+        "w": 15,
+        "h": 12,
+        "yard": 3
+      }
+    },
+    "building.daemonset": [
+      {
+        "src": "Cute_Fantasy_MilitaryCamp/Military_Tents.png",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "w": 80,
+          "h": 96
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        },
+        "footprint": {
+          "w": 5,
+          "h": 6,
+          "yard": 2
+        }
+      },
+      {
+        "src": "Cute_Fantasy_MilitaryCamp/Military_Tents.png",
+        "rect": {
+          "x": 0,
+          "y": 96,
+          "w": 80,
+          "h": 96
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        },
+        "footprint": {
+          "w": 5,
+          "h": 6,
+          "yard": 2
+        }
+      },
+      {
+        "src": "Cute_Fantasy_MilitaryCamp/Military_Tents.png",
+        "rect": {
+          "x": 0,
+          "y": 192,
+          "w": 80,
+          "h": 96
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        },
+        "footprint": {
+          "w": 5,
+          "h": 6,
+          "yard": 2
+        }
+      },
+      {
+        "src": "Cute_Fantasy_MilitaryCamp/Military_Tents.png",
+        "rect": {
+          "x": 0,
+          "y": 288,
+          "w": 80,
+          "h": 96
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        },
+        "footprint": {
+          "w": 5,
+          "h": 6,
+          "yard": 2
+        }
+      }
+    ],
+    "building.job": {
+      "src": "Cute_Fantasy/Tiles/Cliff/Stone_Cliff_1_Cave_Entrance.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "footprint": {
+        "w": 3,
+        "h": 3,
+        "yard": 2
+      }
+    },
+    "building.cronjob": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Unique_Buildings/Windmill/Windmill.png",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 112
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.95
+      },
+      "footprint": {
+        "w": 4,
+        "h": 7,
+        "yard": 3
+      }
+    },
+    "building.cronjob.sail": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Unique_Buildings/Windmill/Windmill_Sail_Anim.png",
+      "frame": {
+        "w": 64,
+        "h": 80
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "anims": {
+        "spin": {
+          "row": 0,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        }
+      }
+    },
+    "building.pod": {
+      "src": "Cute_Fantasy/Buildings/Buildings/Tent/Tent_Small.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "footprint": {
+        "w": 3,
+        "h": 6,
+        "yard": 2
+      }
+    },
+    "building.custom": {
+      "src": "Cute_Fantasy_ShroomLands/Houses/Shroomlinng_House_1.png",
+      "anchor": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "footprint": {
+        "w": 5,
+        "h": 5,
+        "yard": 2
+      }
+    },
+    "actor.villager": [
+      {
+        "src": "Cute_Fantasy/NPCs (Premade)/Farmer_Bob.png",
+        "frame": {
+          "w": 64,
+          "h": 64
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "anims": {
+          "idle_down": {
+            "row": 0,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_side": {
+            "row": 1,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_up": {
+            "row": 2,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "walk_down": {
+            "row": 3,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_side": {
+            "row": 4,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_up": {
+            "row": 5,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "death": {
+            "row": 6,
+            "from": 0,
+            "to": 3,
+            "fps": 6,
+            "loop": false
+          },
+          "work": {
+            "row": 7,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          }
+        }
+      },
+      {
+        "src": "Cute_Fantasy/NPCs (Premade)/Farmer_Buba.png",
+        "frame": {
+          "w": 64,
+          "h": 64
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "anims": {
+          "idle_down": {
+            "row": 0,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_side": {
+            "row": 1,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_up": {
+            "row": 2,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "walk_down": {
+            "row": 3,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_side": {
+            "row": 4,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_up": {
+            "row": 5,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "death": {
+            "row": 6,
+            "from": 0,
+            "to": 3,
+            "fps": 6,
+            "loop": false
+          },
+          "work": {
+            "row": 7,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          }
+        }
+      },
+      {
+        "src": "Cute_Fantasy/NPCs (Premade)/Chef_Chloe.png",
+        "frame": {
+          "w": 64,
+          "h": 64
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "anims": {
+          "idle_down": {
+            "row": 0,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_side": {
+            "row": 1,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_up": {
+            "row": 2,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "walk_down": {
+            "row": 3,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_side": {
+            "row": 4,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_up": {
+            "row": 5,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "death": {
+            "row": 6,
+            "from": 0,
+            "to": 3,
+            "fps": 6,
+            "loop": false
+          }
+        }
+      },
+      {
+        "src": "Cute_Fantasy/NPCs (Premade)/Bartender_Katy.png",
+        "frame": {
+          "w": 64,
+          "h": 64
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "anims": {
+          "idle_down": {
+            "row": 0,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_side": {
+            "row": 1,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_up": {
+            "row": 2,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "walk_down": {
+            "row": 3,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_side": {
+            "row": 4,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_up": {
+            "row": 5,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "death": {
+            "row": 6,
+            "from": 0,
+            "to": 3,
+            "fps": 6,
+            "loop": false
+          }
+        }
+      },
+      {
+        "src": "Cute_Fantasy/NPCs (Premade)/Fisherman_Fin.png",
+        "frame": {
+          "w": 64,
+          "h": 64
+        },
+        "anchor": {
+          "x": 0.5,
+          "y": 0.78
+        },
+        "anims": {
+          "idle_down": {
+            "row": 0,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_side": {
+            "row": 1,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "idle_up": {
+            "row": 2,
+            "from": 0,
+            "to": 5,
+            "fps": 6
+          },
+          "walk_down": {
+            "row": 3,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_side": {
+            "row": 4,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "walk_up": {
+            "row": 5,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          },
+          "death": {
+            "row": 6,
+            "from": 0,
+            "to": 3,
+            "fps": 6,
+            "loop": false
+          },
+          "work": {
+            "row": 7,
+            "from": 0,
+            "to": 5,
+            "fps": 8
+          }
+        }
+      }
+    ],
+    "actor.knight": {
+      "src": "Cute_Fantasy_Characters/Knights/Swordman.png",
+      "frame": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "work": {
+          "row": 6,
+          "from": 0,
+          "to": 5,
+          "fps": 10
+        },
+        "death": {
+          "row": 9,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "hurt": {
+          "row": 10,
+          "from": 0,
+          "to": 1,
+          "fps": 6,
+          "loop": false
+        }
+      }
+    },
+    "actor.archer": {
+      "src": "Cute_Fantasy_Characters/Knights/Archer.png",
+      "frame": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "work": {
+          "row": 6,
+          "from": 0,
+          "to": 5,
+          "fps": 10
+        },
+        "death": {
+          "row": 9,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "hurt": {
+          "row": 10,
+          "from": 0,
+          "to": 1,
+          "fps": 6,
+          "loop": false
+        }
+      }
+    },
+    "actor.templar": {
+      "src": "Cute_Fantasy_Characters/Knights/Templar.png",
+      "frame": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "work": {
+          "row": 6,
+          "from": 0,
+          "to": 5,
+          "fps": 10
+        },
+        "death": {
+          "row": 9,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "hurt": {
+          "row": 10,
+          "from": 0,
+          "to": 1,
+          "fps": 6,
+          "loop": false
+        }
+      }
+    },
+    "actor.miner": {
+      "src": "Cute_Fantasy/NPCs (Premade)/Miner_Mike.png",
+      "frame": {
+        "w": 64,
+        "h": 64
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "death": {
+          "row": 6,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "work": {
+          "row": 7,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        }
+      }
+    },
+    "actor.lumberjack": {
+      "src": "Cute_Fantasy/NPCs (Premade)/Lumberjack_Jack.png",
+      "frame": {
+        "w": 64,
+        "h": 64
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "death": {
+          "row": 6,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "work": {
+          "row": 7,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        }
+      }
+    },
+    "actor.angel": {
+      "src": "Cute_Fantasy_Characters/Angels/Angel_1.png",
+      "frame": {
+        "w": 64,
+        "h": 64
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.78
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        }
+      }
+    },
+    "actor.skeleton": {
+      "src": "Cute_Fantasy/Enemies/Skeleton/Skeleton.png",
+      "frame": {
+        "w": 32,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.8
+      },
+      "anims": {
+        "idle_down": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_side": {
+          "row": 1,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "idle_up": {
+          "row": 2,
+          "from": 0,
+          "to": 5,
+          "fps": 6
+        },
+        "walk_down": {
+          "row": 3,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_side": {
+          "row": 4,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "walk_up": {
+          "row": 5,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        },
+        "death": {
+          "row": 6,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        },
+        "work": {
+          "row": 7,
+          "from": 0,
+          "to": 5,
+          "fps": 10
+        }
+      }
+    },
+    "monster.crash": {
+      "src": "Cute_Fantasy/Enemies/Slime/Slime_Medium/Slime_Medium_Red.png",
+      "frame": {
+        "w": 32,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.75
+      },
+      "anims": {
+        "idle": {
+          "row": 0,
+          "from": 0,
+          "to": 3,
+          "fps": 6
+        },
+        "jump": {
+          "row": 1,
+          "from": 0,
+          "to": 7,
+          "fps": 10
+        },
+        "hurt": {
+          "row": 2,
+          "from": 0,
+          "to": 3,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 3,
+          "from": 0,
+          "to": 3,
+          "fps": 6,
+          "loop": false
+        }
+      }
+    },
+    "monster.oom": {
+      "src": "Cute_Fantasy/Enemies/Bombschroom/Bombschroom.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.95
+      },
+      "anims": {
+        "idle": {
+          "row": 0,
+          "from": 0,
+          "to": 1,
+          "fps": 4
+        },
+        "walk": {
+          "row": 3,
+          "from": 0,
+          "to": 4,
+          "fps": 8
+        },
+        "fuse": {
+          "row": 10,
+          "from": 0,
+          "to": 7,
+          "fps": 10,
+          "loop": false
+        },
+        "explode": {
+          "row": 17,
+          "from": 0,
+          "to": 3,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "fx.gas": {
+      "src": "Cute_Fantasy/Enemies/Bombschroom/Toxic_Gas_Cloud_VFX.png",
+      "frame": {
+        "w": 32,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "anims": {
+        "puff": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "fx.skull": {
+      "src": "Cute_Fantasy_Volcano/Enemies/Flying_Skull.png",
+      "frame": {
+        "w": 32,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.6
+      },
+      "anims": {
+        "fly": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 8
+        }
+      }
+    },
+    "prop.configmap": {
+      "src": "Cute_Fantasy/Buildings/House_Decor/Chest_Anim.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "anims": {
+        "open": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "prop.secret": {
+      "src": "Cute_Fantasy/Buildings/House_Decor/Golden_Chest_Anim.png",
+      "frame": {
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      },
+      "anims": {
+        "open": {
+          "row": 0,
+          "from": 0,
+          "to": 5,
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "prop.pvc": {
+      "src": "Cute_Fantasy/Outdoor decoration/barrels.png",
+      "rect": {
+        "x": 48,
+        "y": 0,
+        "w": 16,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.9
+      }
+    },
+    "prop.ore": [
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          1,
+          0
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          1,
+          2
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          1,
+          4
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          2,
+          0
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          2,
+          2
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          2,
+          4
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          3,
+          0
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          3,
+          2
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "src": "Cute_Fantasy/Outdoor decoration/Ores.png",
+        "tile": {
+          "w": 16,
+          "h": 16
+        },
+        "at": [
+          3,
+          4
+        ],
+        "anchor": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      }
+    ],
+    "prop.gold": {
+      "src": "Cute_Fantasy_Dungeons/Objects/Gold_Piles.png",
+      "rect": {
+        "x": 32,
+        "y": 0,
+        "w": 32,
+        "h": 48
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.95
+      }
+    },
+    "ui.ribbon": {
+      "src": "Cute_Fantasy_UI/UI/UI_Ribbons.png",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 32
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "ui.icon.question": {
+      "src": "Cute_Fantasy_UI/UI/UI_Icons.png",
+      "rect": {
+        "x": 192,
+        "y": 48,
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    "ui.icon.alert": {
+      "src": "Cute_Fantasy_UI/UI/UI_Icons.png",
+      "rect": {
+        "x": 192,
+        "y": 32,
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    "ui.icon.wait": {
+      "src": "Cute_Fantasy_UI/UI/UI_Icons.png",
+      "rect": {
+        "x": 208,
+        "y": 48,
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    "ui.icon.star": {
+      "src": "Cute_Fantasy_UI/UI/UI_Icons.png",
+      "rect": {
+        "x": 48,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 1
+      }
+    }
+  },
+  "labels": {
+    "tile.grass": "island",
+    "decor.fence": "fenced village",
+    "building.deployment.t2": "wooden house",
+    "building.statefulset.t2": "stone house",
+    "building.daemonset": "tent",
+    "building.job": "mine",
+    "building.cronjob": "windmill",
+    "building.custom": "mushroom house",
+    "actor.villager": "villager",
+    "monster.crash": "red slime",
+    "decor.sign": "signpost",
+    "decor.bridge": "bridge",
+    "prop.configmap": "chest",
+    "prop.secret": "golden chest"
+  }
+}

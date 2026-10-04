@@ -91,7 +91,7 @@ func (h *Handler) principal(r *http.Request) (*auth.Principal, error) {
 	if err != nil {
 		return nil, auth.ErrUnauthenticated
 	}
-	return h.auth.Verify(c.Value)
+	return h.auth.VerifyHydrated(r.Context(), c.Value)
 }
 
 func (h *Handler) redirectSlash(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +111,12 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 	port, err := strconv.Atoi(r.PathValue("port"))
 	if err != nil || port <= 0 || port > 65535 {
 		http.Error(w, "bad port", http.StatusBadRequest)
+		return
+	}
+	if err := auth.AuthorizeCluster(auth.WithPrincipal(r.Context(), p), clusterID, false, ns); err != nil {
+		_ = h.store.Audit(r.Context(), store.AuditEvent{User: p.Email, ClusterID: clusterID, Action: "port-forward",
+			Target: ns + "/" + pod, Result: "denied: " + err.Error()})
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	rest := "/" + r.PathValue("rest")

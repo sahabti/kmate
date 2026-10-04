@@ -13,9 +13,11 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Callout } from "@/components/callout";
 import { PixiCanvas, type PixiHandle } from "./PixiCanvas";
-import { loadRealmAssets, type RealmIndex } from "./assets";
+import { loadTheme, loadThemesIndex, type Theme, type ThemesIndex } from "./theme";
+import { useRealmTheme } from "@/store/realmTheme";
 import { RealmRenderer, type Target } from "./renderer";
 import { buildWorld, TILE, type CatalogLite, type World } from "./world";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { platform } from "@/platform";
 
 const g = (group: string, version: string, resource: string) => ({ group, version, resource });
@@ -28,7 +30,10 @@ export function RealmViewPage() {
   const caps = useCapabilities(clusterId);
   const [showSystem, setShowSystem] = useState(false);
   const [legend, setLegend] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
-  const [index, setIndex] = useState<RealmIndex | null>(null);
+  const [index, setIndex] = useState<ThemesIndex | null>(null);
+  const themeId = useRealmTheme((s) => s.themeId);
+  const setThemeId = useRealmTheme((s) => s.setTheme);
+  const [theme, setTheme] = useState<Theme | null>(null);
   const [hover, setHover] = useState<string | null>(null);
 
   // Live data. Every kind is a live watch; they all share one multiplexed WebSocket per
@@ -58,13 +63,17 @@ export function RealmViewPage() {
       nodes: nodes.items, pods: pods.items, deployments: deployments.items, statefulsets: statefulsets.items, daemonsets: daemonsets.items,
       jobs: jobs.items, cronjobs: cronjobs.items, services: services.items, pvcs: pvcs.items, configmaps: configmaps.items, secrets: secrets.items,
       catalog: catalogLite, showSystem,
+      footprint: theme ? (role, variant) => theme.footprint(role, variant) : undefined,
     });
-  }, [nodes.items, nodes.synced, pods.items, pods.synced, deployments.items, statefulsets.items, daemonsets.items, jobs.items, cronjobs.items, services.items, pvcs.items, configmaps.items, secrets.items, catalogLite, showSystem]);
+  }, [theme, nodes.items, nodes.synced, pods.items, pods.synced, deployments.items, statefulsets.items, daemonsets.items, jobs.items, cronjobs.items, services.items, pvcs.items, configmaps.items, secrets.items, catalogLite, showSystem]);
 
   const handleRef = useRef<PixiHandle | null>(null);
   const rendererRef = useRef<RealmRenderer | null>(null);
   const fittedRef = useRef(false);
   const worldRef = useRef<World | null>(null);
+  const themeRef = useRef<Theme | null>(null);
+  const themeIdRef = useRef(themeId);
+  themeIdRef.current = themeId;
   worldRef.current = world;
 
   const describe = useCallback((t: Target): string[] => {
@@ -82,10 +91,16 @@ export function RealmViewPage() {
   const [diag, setDiag] = useState("");
   const onReady = useCallback(async (h: PixiHandle) => {
     handleRef.current = h;
-    const idx = await loadRealmAssets();
+    const idx = await loadThemesIndex();
     setIndex(idx);
-    if (!idx.available) return;
-    const r = new RealmRenderer(h.app, h.world, {
+    const available = idx.themes.filter((t) => t.available);
+    if (!available.length) return;
+    const wanted = available.find((t) => t.id === themeIdRef.current) ?? available.find((t) => t.id === idx.defaultTheme) ?? available[0]!;
+    let th: Theme;
+    try { th = await loadTheme(h.app, wanted.id); } catch (e) { console.error("[realm] theme load failed", e); return; }
+    themeRef.current = th;
+    setTheme(th);
+    const r = new RealmRenderer(h.app, h.world, th, {
       isDrag: () => h.camera.wasDrag(),
       viewport: () => h.camera.viewport(),
       onHover: (t, sx, sy) => {
@@ -126,6 +141,23 @@ export function RealmViewPage() {
     }
   }, [describe, openDrawer, navigate, clusterId]);
 
+  // live theme swap: load the art, hand it to the renderer, rebuild every sprite
+  useEffect(() => {
+    const h = handleRef.current, r = rendererRef.current;
+    if (!h || !r || !themeId || themeId === themeRef.current?.id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const th = await loadTheme(h.app, themeId);
+        if (cancelled) return;
+        themeRef.current = th;
+        setTheme(th);
+        if (worldRef.current) r.setTheme(th, worldRef.current);
+      } catch (e) { console.error("[realm] theme swap failed", e); }
+    })();
+    return () => { cancelled = true; };
+  }, [themeId]);
+
   const onDispose = useCallback(() => { rendererRef.current?.destroy(); rendererRef.current = null; handleRef.current = null; fittedRef.current = false; }, []);
 
   useEffect(() => {
@@ -137,16 +169,52 @@ export function RealmViewPage() {
 
   useEffect(() => { rendererRef.current?.setDim(namespace); }, [namespace, world]);
 
+  // What the legend explains, in render order. The noun and the swatch both come
+  // from the active theme, so switching themes re-labels and re-draws the key.
+  const LEGEND_ROLES: Array<{ role: string; means: string }> = [
+    { role: "building.deployment.t2", means: "Deployment" },
+    { role: "building.statefulset.t2", means: "StatefulSet" },
+    { role: "building.daemonset", means: "DaemonSet" },
+    { role: "building.job", means: "Job" },
+    { role: "building.cronjob", means: "CronJob" },
+    { role: "building.custom", means: "other controller" },
+    { role: "actor.villager", means: "pod" },
+    { role: "monster.crash", means: "crashing pod" },
+    { role: "decor.sign", means: "Service" },
+    { role: "decor.bridge", means: "exposed URL" },
+    { role: "prop.configmap", means: "ConfigMap" },
+    { role: "prop.secret", means: "Secret" },
+  ];
+
+  // Render each legend role to a data URL once per theme so the key shows the real art.
+  const [swatches, setSwatches] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const h = handleRef.current;
+    if (!h || !theme) { setSwatches({}); return; }
+    const out: Record<string, string> = {};
+    for (const { role } of LEGEND_ROLES) {
+      if (!theme.has(role)) continue;
+      try {
+        const canvas = h.app.renderer.extract.canvas(theme.texture(role, "legend")) as HTMLCanvasElement;
+        if (canvas.width && canvas.height) out[role] = canvas.toDataURL();
+      } catch { /* a role without a drawable texture just shows its noun */ }
+    }
+    setSwatches(out);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
+
+  const activeInfo = index?.themes.find((t) => t.id === theme?.id) ?? null;
+
   const zoomIn = () => handleRef.current?.camera.zoomIn();
   const zoomOut = () => handleRef.current?.camera.zoomOut();
   const reset = () => { const h = handleRef.current; if (h && world) fitWorld(h, world); };
 
   return (
     <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden">
-      {index && !index.available && (
+      {index && !index.themes.some((t) => t.available) && (
         <div className="absolute inset-x-0 top-0 z-10 p-4">
-          <Callout variant="warning" title="Realm assets not installed">
-            The Cute Fantasy art is not redistributable, so it is not in the repository. Set <code>KMATE_ASSETS_DIR</code> to your copy of the packs and run <code>pnpm realm:assets</code> (it also runs before <code>dev</code>/<code>build</code>). {index.reason}
+          <Callout variant="warning" title="No Realm theme available">
+            No theme published any art. Run <code>pnpm realm:assets</code> (it also runs before <code>dev</code> and <code>build</code>). {index.themes.map((t) => t.reason).filter(Boolean).join(" · ")}
           </Callout>
         </div>
       )}
@@ -179,16 +247,42 @@ export function RealmViewPage() {
           {legend && (
             <div className="mt-2 space-y-1 text-muted-foreground">
               <div><b className="text-foreground">Island</b> = node · <b className="text-foreground">fenced village</b> = namespace</div>
-              <div><b className="text-foreground">Wooden house</b> = Deployment · <b className="text-foreground">stone house</b> = StatefulSet · <b className="text-foreground">tent</b> = DaemonSet</div>
-              <div><b className="text-foreground">Mine</b> = Job · <b className="text-foreground">windmill</b> = CronJob · <b className="text-foreground">mushroom house</b> = other controller</div>
-              <div><b className="text-foreground">Villagers</b> = pods; a red slime attacks a crashing pod, a bubble marks not-ready/pending</div>
-              <div><b className="text-foreground">Signpost</b> = Service · <b className="text-foreground">bridge</b> = exposed URL (blue banner = TLS) · <b className="text-foreground">chests</b> = ConfigMaps/Secrets</div>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 py-1">
+                {LEGEND_ROLES.filter((e) => theme?.has(e.role)).map((e) => (
+                  <div key={e.role} className="flex items-center gap-1.5" title={theme?.label(e.role) || e.means}>
+                    <span className="flex size-6 shrink-0 items-center justify-center">
+                      {swatches[e.role] ? (
+                        <img src={swatches[e.role]} alt={theme?.label(e.role) || e.means} className="max-h-6 max-w-6 object-contain" style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <span className="size-2 rounded-full bg-muted-foreground/40" />
+                      )}
+                    </span>
+                    <span className="truncate">{e.means}</span>
+                  </div>
+                ))}
+              </div>
+              <div>A bubble marks a not-ready or pending pod · a blue banner on a bridge means TLS</div>
               <div>Ring under a building: green all ready · amber partial · red none · grey scaled to 0</div>
               <div>Villagers are visible at every zoom level. Only realms with more than 1,500 pods hide them at ×1 and show a <b>ready/desired</b> badge on each house instead</div>
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between gap-2 pt-1">
                 <label className="flex items-center gap-2"><Switch checked={showSystem} onCheckedChange={setShowSystem} /> show system villages</label>
-                <a className="inline-flex items-center gap-1 hover:underline" href="https://kenmi-art.itch.io/cute-fantasy-rpg" target="_blank" rel="noreferrer">Art: Cute Fantasy by Kenmi <ExternalLink className="size-3" /></a>
+                {index && index.themes.filter((t) => t.available).length > 1 && (
+                  <Select value={theme?.id ?? ""} onValueChange={setThemeId}>
+                    <SelectTrigger size="sm" className="h-7 w-auto gap-1 text-xs" aria-label="Realm theme"><SelectValue placeholder="Theme" /></SelectTrigger>
+                    <SelectContent>
+                      {index.themes.filter((t) => t.available).map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
+              {activeInfo && (
+                <div className="pt-0.5">
+                  <a className="inline-flex items-center gap-1 hover:underline" href={activeInfo.url} target="_blank" rel="noreferrer">
+                    Art: {activeInfo.name}{activeInfo.author ? ` by ${activeInfo.author}` : ""} <ExternalLink className="size-3" />
+                  </a>
+                  <div className="text-[10px] opacity-70">{activeInfo.license}</div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

@@ -749,6 +749,58 @@ func (x *ClusterMetricsRequest) GetMetrics() *MetricsRequest {
 	return nil
 }
 
+type ClusterAccessReviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterId     string                 `protobuf:"bytes,1,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
+	Review        *AccessReviewRequest   `protobuf:"bytes,2,opt,name=review,proto3" json:"review,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterAccessReviewRequest) Reset() {
+	*x = ClusterAccessReviewRequest{}
+	mi := &file_kmate_v1_cluster_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterAccessReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterAccessReviewRequest) ProtoMessage() {}
+
+func (x *ClusterAccessReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_cluster_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterAccessReviewRequest.ProtoReflect.Descriptor instead.
+func (*ClusterAccessReviewRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_cluster_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ClusterAccessReviewRequest) GetClusterId() string {
+	if x != nil {
+		return x.ClusterId
+	}
+	return ""
+}
+
+func (x *ClusterAccessReviewRequest) GetReview() *AccessReviewRequest {
+	if x != nil {
+		return x.Review
+	}
+	return nil
+}
+
 var File_kmate_v1_cluster_proto protoreflect.FileDescriptor
 
 const file_kmate_v1_cluster_proto_rawDesc = "" +
@@ -809,7 +861,11 @@ const file_kmate_v1_cluster_proto_rawDesc = "" +
 	"\x15ClusterMetricsRequest\x12\x1d\n" +
 	"\n" +
 	"cluster_id\x18\x01 \x01(\tR\tclusterId\x122\n" +
-	"\ametrics\x18\x02 \x01(\v2\x18.kmate.v1.MetricsRequestR\ametrics2\xa8\b\n" +
+	"\ametrics\x18\x02 \x01(\v2\x18.kmate.v1.MetricsRequestR\ametrics\"r\n" +
+	"\x1aClusterAccessReviewRequest\x12\x1d\n" +
+	"\n" +
+	"cluster_id\x18\x01 \x01(\tR\tclusterId\x125\n" +
+	"\x06review\x18\x02 \x01(\v2\x1d.kmate.v1.AccessReviewRequestR\x06review2\xfe\b\n" +
 	"\x0eClusterService\x12H\n" +
 	"\bDiscover\x12 .kmate.v1.ClusterDiscoverRequest\x1a\x1a.kmate.v1.DiscoverResponse\x12<\n" +
 	"\x04List\x12\x1c.kmate.v1.ClusterListRequest\x1a\x16.kmate.v1.ListResponse\x129\n" +
@@ -827,7 +883,8 @@ const file_kmate_v1_cluster_proto_rawDesc = "" +
 	"\x10ListHelmReleases\x12 .kmate.v1.ClusterHelmListRequest\x1a\x1a.kmate.v1.HelmListResponse\x12L\n" +
 	"\x0eGetHelmRelease\x12\x1f.kmate.v1.ClusterHelmGetRequest\x1a\x19.kmate.v1.HelmGetResponse\x12H\n" +
 	"\n" +
-	"GetMetrics\x12\x1f.kmate.v1.ClusterMetricsRequest\x1a\x19.kmate.v1.MetricsResponseB\x91\x01\n" +
+	"GetMetrics\x12\x1f.kmate.v1.ClusterMetricsRequest\x1a\x19.kmate.v1.MetricsResponse\x12T\n" +
+	"\fAccessReview\x12$.kmate.v1.ClusterAccessReviewRequest\x1a\x1e.kmate.v1.AccessReviewResponseB\x91\x01\n" +
 	"\fcom.kmate.v1B\fClusterProtoP\x01Z2github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1\xa2\x02\x03KXX\xaa\x02\bKmate.V1\xca\x02\bKmate\\V1\xe2\x02\x14Kmate\\V1\\GPBMetadata\xea\x02\tKmate::V1b\x06proto3"
 
 var (
@@ -842,7 +899,7 @@ func file_kmate_v1_cluster_proto_rawDescGZIP() []byte {
 	return file_kmate_v1_cluster_proto_rawDescData
 }
 
-var file_kmate_v1_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_kmate_v1_cluster_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_kmate_v1_cluster_proto_goTypes = []any{
 	(*ClusterDiscoverRequest)(nil),       // 0: kmate.v1.ClusterDiscoverRequest
 	(*ClusterListRequest)(nil),           // 1: kmate.v1.ClusterListRequest
@@ -858,82 +915,88 @@ var file_kmate_v1_cluster_proto_goTypes = []any{
 	(*ClusterHelmListRequest)(nil),       // 11: kmate.v1.ClusterHelmListRequest
 	(*ClusterHelmGetRequest)(nil),        // 12: kmate.v1.ClusterHelmGetRequest
 	(*ClusterMetricsRequest)(nil),        // 13: kmate.v1.ClusterMetricsRequest
-	(*GVR)(nil),                          // 14: kmate.v1.GVR
-	(*ListOptions)(nil),                  // 15: kmate.v1.ListOptions
-	(*ObjectRef)(nil),                    // 16: kmate.v1.ObjectRef
-	(*ApplyRequest)(nil),                 // 17: kmate.v1.ApplyRequest
-	(*PatchRequest)(nil),                 // 18: kmate.v1.PatchRequest
-	(*DeleteRequest)(nil),                // 19: kmate.v1.DeleteRequest
-	(*ScaleRequest)(nil),                 // 20: kmate.v1.ScaleRequest
-	(*RolloutRestartRequest)(nil),        // 21: kmate.v1.RolloutRestartRequest
-	(*LogsRequest)(nil),                  // 22: kmate.v1.LogsRequest
-	(*HelmGetRequest)(nil),               // 23: kmate.v1.HelmGetRequest
-	(*MetricsRequest)(nil),               // 24: kmate.v1.MetricsRequest
-	(*DiscoverResponse)(nil),             // 25: kmate.v1.DiscoverResponse
-	(*ListResponse)(nil),                 // 26: kmate.v1.ListResponse
-	(*GetResponse)(nil),                  // 27: kmate.v1.GetResponse
-	(*WatchEvent)(nil),                   // 28: kmate.v1.WatchEvent
-	(*ApplyResponse)(nil),                // 29: kmate.v1.ApplyResponse
-	(*PatchResponse)(nil),                // 30: kmate.v1.PatchResponse
-	(*DeleteResponse)(nil),               // 31: kmate.v1.DeleteResponse
-	(*ScaleResponse)(nil),                // 32: kmate.v1.ScaleResponse
-	(*RolloutRestartResponse)(nil),       // 33: kmate.v1.RolloutRestartResponse
-	(*Data)(nil),                         // 34: kmate.v1.Data
-	(*CatalogResponse)(nil),              // 35: kmate.v1.CatalogResponse
-	(*Catalog)(nil),                      // 36: kmate.v1.Catalog
-	(*HelmListResponse)(nil),             // 37: kmate.v1.HelmListResponse
-	(*HelmGetResponse)(nil),              // 38: kmate.v1.HelmGetResponse
-	(*MetricsResponse)(nil),              // 39: kmate.v1.MetricsResponse
+	(*ClusterAccessReviewRequest)(nil),   // 14: kmate.v1.ClusterAccessReviewRequest
+	(*GVR)(nil),                          // 15: kmate.v1.GVR
+	(*ListOptions)(nil),                  // 16: kmate.v1.ListOptions
+	(*ObjectRef)(nil),                    // 17: kmate.v1.ObjectRef
+	(*ApplyRequest)(nil),                 // 18: kmate.v1.ApplyRequest
+	(*PatchRequest)(nil),                 // 19: kmate.v1.PatchRequest
+	(*DeleteRequest)(nil),                // 20: kmate.v1.DeleteRequest
+	(*ScaleRequest)(nil),                 // 21: kmate.v1.ScaleRequest
+	(*RolloutRestartRequest)(nil),        // 22: kmate.v1.RolloutRestartRequest
+	(*LogsRequest)(nil),                  // 23: kmate.v1.LogsRequest
+	(*HelmGetRequest)(nil),               // 24: kmate.v1.HelmGetRequest
+	(*MetricsRequest)(nil),               // 25: kmate.v1.MetricsRequest
+	(*AccessReviewRequest)(nil),          // 26: kmate.v1.AccessReviewRequest
+	(*DiscoverResponse)(nil),             // 27: kmate.v1.DiscoverResponse
+	(*ListResponse)(nil),                 // 28: kmate.v1.ListResponse
+	(*GetResponse)(nil),                  // 29: kmate.v1.GetResponse
+	(*WatchEvent)(nil),                   // 30: kmate.v1.WatchEvent
+	(*ApplyResponse)(nil),                // 31: kmate.v1.ApplyResponse
+	(*PatchResponse)(nil),                // 32: kmate.v1.PatchResponse
+	(*DeleteResponse)(nil),               // 33: kmate.v1.DeleteResponse
+	(*ScaleResponse)(nil),                // 34: kmate.v1.ScaleResponse
+	(*RolloutRestartResponse)(nil),       // 35: kmate.v1.RolloutRestartResponse
+	(*Data)(nil),                         // 36: kmate.v1.Data
+	(*CatalogResponse)(nil),              // 37: kmate.v1.CatalogResponse
+	(*Catalog)(nil),                      // 38: kmate.v1.Catalog
+	(*HelmListResponse)(nil),             // 39: kmate.v1.HelmListResponse
+	(*HelmGetResponse)(nil),              // 40: kmate.v1.HelmGetResponse
+	(*MetricsResponse)(nil),              // 41: kmate.v1.MetricsResponse
+	(*AccessReviewResponse)(nil),         // 42: kmate.v1.AccessReviewResponse
 }
 var file_kmate_v1_cluster_proto_depIdxs = []int32{
-	14, // 0: kmate.v1.ClusterListRequest.gvr:type_name -> kmate.v1.GVR
-	15, // 1: kmate.v1.ClusterListRequest.options:type_name -> kmate.v1.ListOptions
-	16, // 2: kmate.v1.ClusterGetRequest.ref:type_name -> kmate.v1.ObjectRef
-	14, // 3: kmate.v1.ClusterWatchRequest.gvr:type_name -> kmate.v1.GVR
-	15, // 4: kmate.v1.ClusterWatchRequest.options:type_name -> kmate.v1.ListOptions
-	17, // 5: kmate.v1.ClusterApplyRequest.apply:type_name -> kmate.v1.ApplyRequest
-	18, // 6: kmate.v1.ClusterPatchRequest.patch:type_name -> kmate.v1.PatchRequest
-	19, // 7: kmate.v1.ClusterDeleteRequest.delete:type_name -> kmate.v1.DeleteRequest
-	20, // 8: kmate.v1.ClusterScaleRequest.scale:type_name -> kmate.v1.ScaleRequest
-	21, // 9: kmate.v1.ClusterRolloutRestartRequest.restart:type_name -> kmate.v1.RolloutRestartRequest
-	22, // 10: kmate.v1.ClusterLogsRequest.logs:type_name -> kmate.v1.LogsRequest
-	23, // 11: kmate.v1.ClusterHelmGetRequest.helm:type_name -> kmate.v1.HelmGetRequest
-	24, // 12: kmate.v1.ClusterMetricsRequest.metrics:type_name -> kmate.v1.MetricsRequest
-	0,  // 13: kmate.v1.ClusterService.Discover:input_type -> kmate.v1.ClusterDiscoverRequest
-	1,  // 14: kmate.v1.ClusterService.List:input_type -> kmate.v1.ClusterListRequest
-	2,  // 15: kmate.v1.ClusterService.Get:input_type -> kmate.v1.ClusterGetRequest
-	3,  // 16: kmate.v1.ClusterService.Watch:input_type -> kmate.v1.ClusterWatchRequest
-	4,  // 17: kmate.v1.ClusterService.Apply:input_type -> kmate.v1.ClusterApplyRequest
-	5,  // 18: kmate.v1.ClusterService.Patch:input_type -> kmate.v1.ClusterPatchRequest
-	6,  // 19: kmate.v1.ClusterService.Delete:input_type -> kmate.v1.ClusterDeleteRequest
-	7,  // 20: kmate.v1.ClusterService.Scale:input_type -> kmate.v1.ClusterScaleRequest
-	8,  // 21: kmate.v1.ClusterService.RolloutRestart:input_type -> kmate.v1.ClusterRolloutRestartRequest
-	9,  // 22: kmate.v1.ClusterService.Logs:input_type -> kmate.v1.ClusterLogsRequest
-	10, // 23: kmate.v1.ClusterService.GetCatalog:input_type -> kmate.v1.ClusterCatalogRequest
-	10, // 24: kmate.v1.ClusterService.WatchCatalog:input_type -> kmate.v1.ClusterCatalogRequest
-	11, // 25: kmate.v1.ClusterService.ListHelmReleases:input_type -> kmate.v1.ClusterHelmListRequest
-	12, // 26: kmate.v1.ClusterService.GetHelmRelease:input_type -> kmate.v1.ClusterHelmGetRequest
-	13, // 27: kmate.v1.ClusterService.GetMetrics:input_type -> kmate.v1.ClusterMetricsRequest
-	25, // 28: kmate.v1.ClusterService.Discover:output_type -> kmate.v1.DiscoverResponse
-	26, // 29: kmate.v1.ClusterService.List:output_type -> kmate.v1.ListResponse
-	27, // 30: kmate.v1.ClusterService.Get:output_type -> kmate.v1.GetResponse
-	28, // 31: kmate.v1.ClusterService.Watch:output_type -> kmate.v1.WatchEvent
-	29, // 32: kmate.v1.ClusterService.Apply:output_type -> kmate.v1.ApplyResponse
-	30, // 33: kmate.v1.ClusterService.Patch:output_type -> kmate.v1.PatchResponse
-	31, // 34: kmate.v1.ClusterService.Delete:output_type -> kmate.v1.DeleteResponse
-	32, // 35: kmate.v1.ClusterService.Scale:output_type -> kmate.v1.ScaleResponse
-	33, // 36: kmate.v1.ClusterService.RolloutRestart:output_type -> kmate.v1.RolloutRestartResponse
-	34, // 37: kmate.v1.ClusterService.Logs:output_type -> kmate.v1.Data
-	35, // 38: kmate.v1.ClusterService.GetCatalog:output_type -> kmate.v1.CatalogResponse
-	36, // 39: kmate.v1.ClusterService.WatchCatalog:output_type -> kmate.v1.Catalog
-	37, // 40: kmate.v1.ClusterService.ListHelmReleases:output_type -> kmate.v1.HelmListResponse
-	38, // 41: kmate.v1.ClusterService.GetHelmRelease:output_type -> kmate.v1.HelmGetResponse
-	39, // 42: kmate.v1.ClusterService.GetMetrics:output_type -> kmate.v1.MetricsResponse
-	28, // [28:43] is the sub-list for method output_type
-	13, // [13:28] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	15, // 0: kmate.v1.ClusterListRequest.gvr:type_name -> kmate.v1.GVR
+	16, // 1: kmate.v1.ClusterListRequest.options:type_name -> kmate.v1.ListOptions
+	17, // 2: kmate.v1.ClusterGetRequest.ref:type_name -> kmate.v1.ObjectRef
+	15, // 3: kmate.v1.ClusterWatchRequest.gvr:type_name -> kmate.v1.GVR
+	16, // 4: kmate.v1.ClusterWatchRequest.options:type_name -> kmate.v1.ListOptions
+	18, // 5: kmate.v1.ClusterApplyRequest.apply:type_name -> kmate.v1.ApplyRequest
+	19, // 6: kmate.v1.ClusterPatchRequest.patch:type_name -> kmate.v1.PatchRequest
+	20, // 7: kmate.v1.ClusterDeleteRequest.delete:type_name -> kmate.v1.DeleteRequest
+	21, // 8: kmate.v1.ClusterScaleRequest.scale:type_name -> kmate.v1.ScaleRequest
+	22, // 9: kmate.v1.ClusterRolloutRestartRequest.restart:type_name -> kmate.v1.RolloutRestartRequest
+	23, // 10: kmate.v1.ClusterLogsRequest.logs:type_name -> kmate.v1.LogsRequest
+	24, // 11: kmate.v1.ClusterHelmGetRequest.helm:type_name -> kmate.v1.HelmGetRequest
+	25, // 12: kmate.v1.ClusterMetricsRequest.metrics:type_name -> kmate.v1.MetricsRequest
+	26, // 13: kmate.v1.ClusterAccessReviewRequest.review:type_name -> kmate.v1.AccessReviewRequest
+	0,  // 14: kmate.v1.ClusterService.Discover:input_type -> kmate.v1.ClusterDiscoverRequest
+	1,  // 15: kmate.v1.ClusterService.List:input_type -> kmate.v1.ClusterListRequest
+	2,  // 16: kmate.v1.ClusterService.Get:input_type -> kmate.v1.ClusterGetRequest
+	3,  // 17: kmate.v1.ClusterService.Watch:input_type -> kmate.v1.ClusterWatchRequest
+	4,  // 18: kmate.v1.ClusterService.Apply:input_type -> kmate.v1.ClusterApplyRequest
+	5,  // 19: kmate.v1.ClusterService.Patch:input_type -> kmate.v1.ClusterPatchRequest
+	6,  // 20: kmate.v1.ClusterService.Delete:input_type -> kmate.v1.ClusterDeleteRequest
+	7,  // 21: kmate.v1.ClusterService.Scale:input_type -> kmate.v1.ClusterScaleRequest
+	8,  // 22: kmate.v1.ClusterService.RolloutRestart:input_type -> kmate.v1.ClusterRolloutRestartRequest
+	9,  // 23: kmate.v1.ClusterService.Logs:input_type -> kmate.v1.ClusterLogsRequest
+	10, // 24: kmate.v1.ClusterService.GetCatalog:input_type -> kmate.v1.ClusterCatalogRequest
+	10, // 25: kmate.v1.ClusterService.WatchCatalog:input_type -> kmate.v1.ClusterCatalogRequest
+	11, // 26: kmate.v1.ClusterService.ListHelmReleases:input_type -> kmate.v1.ClusterHelmListRequest
+	12, // 27: kmate.v1.ClusterService.GetHelmRelease:input_type -> kmate.v1.ClusterHelmGetRequest
+	13, // 28: kmate.v1.ClusterService.GetMetrics:input_type -> kmate.v1.ClusterMetricsRequest
+	14, // 29: kmate.v1.ClusterService.AccessReview:input_type -> kmate.v1.ClusterAccessReviewRequest
+	27, // 30: kmate.v1.ClusterService.Discover:output_type -> kmate.v1.DiscoverResponse
+	28, // 31: kmate.v1.ClusterService.List:output_type -> kmate.v1.ListResponse
+	29, // 32: kmate.v1.ClusterService.Get:output_type -> kmate.v1.GetResponse
+	30, // 33: kmate.v1.ClusterService.Watch:output_type -> kmate.v1.WatchEvent
+	31, // 34: kmate.v1.ClusterService.Apply:output_type -> kmate.v1.ApplyResponse
+	32, // 35: kmate.v1.ClusterService.Patch:output_type -> kmate.v1.PatchResponse
+	33, // 36: kmate.v1.ClusterService.Delete:output_type -> kmate.v1.DeleteResponse
+	34, // 37: kmate.v1.ClusterService.Scale:output_type -> kmate.v1.ScaleResponse
+	35, // 38: kmate.v1.ClusterService.RolloutRestart:output_type -> kmate.v1.RolloutRestartResponse
+	36, // 39: kmate.v1.ClusterService.Logs:output_type -> kmate.v1.Data
+	37, // 40: kmate.v1.ClusterService.GetCatalog:output_type -> kmate.v1.CatalogResponse
+	38, // 41: kmate.v1.ClusterService.WatchCatalog:output_type -> kmate.v1.Catalog
+	39, // 42: kmate.v1.ClusterService.ListHelmReleases:output_type -> kmate.v1.HelmListResponse
+	40, // 43: kmate.v1.ClusterService.GetHelmRelease:output_type -> kmate.v1.HelmGetResponse
+	41, // 44: kmate.v1.ClusterService.GetMetrics:output_type -> kmate.v1.MetricsResponse
+	42, // 45: kmate.v1.ClusterService.AccessReview:output_type -> kmate.v1.AccessReviewResponse
+	30, // [30:46] is the sub-list for method output_type
+	14, // [14:30] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_kmate_v1_cluster_proto_init() }
@@ -950,7 +1013,7 @@ func file_kmate_v1_cluster_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kmate_v1_cluster_proto_rawDesc), len(file_kmate_v1_cluster_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

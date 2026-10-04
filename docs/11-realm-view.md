@@ -169,33 +169,89 @@ World
 - Keyboard: WASD/arrows pan, `+`/`-` zoom, `F` follow selected pod, `Esc` deselect.
 - Mobile: bottom sheet instead of drawer, touch pan/pinch, tap = click.
 
-## 6. Asset pipeline & licensing (important)
+## 6. Themes, art and licensing
 
-Licences (verified in `assets/*/read_me.txt`):
+The engine never names a sprite file. The world builder and the renderer ask for
+**semantic roles** (`building.deployment.t2`, `actor.villager`, `prop.secret`), and a
+**theme** maps those roles onto its own art. That keeps the mapping — which is the
+actual design work — separate from the pictures, so the public repository can ship a
+CC0 theme while a licensed theme stays on the machine that owns the licence.
 
-| Pack | Licence | Use in KMate |
-|---|---|---|
-| Cute_Fantasy (premium), Characters, Desert, Dungeons, UI, Volcano, MilitaryCamp, ShroomLands, Halloween, Christmas | commercial OK, modify OK, **no redistribution** | **used** |
-| Cute_Fantasy_Free | non-commercial only | **excluded** (the premium pack contains everything in it) |
-| forest-monster (.blend, CC0) | CC0 | not used (3D) |
+### The role contract
 
-"No redistribution" means the raw sprites cannot be committed to a public repository or
-shipped in a public npm package. Therefore:
+| Group | Roles |
+|---|---|
+| terrain | `tile.water` `tile.grass` `tile.path` `tile.cliff` |
+| decor | `decor.fence` `decor.hedge` `decor.sign` `decor.bridge` `decor.gate` `decor.tower` `decor.flag` `decor.lantern` |
+| buildings | `building.deployment.t{1,2,3,5,6}` `building.statefulset.t{1,2,3,5,6}` `building.daemonset` `building.job` `building.cronjob` `building.cronjob.sail` `building.pod` `building.custom` |
+| actors | `actor.villager` `actor.knight` `actor.archer` `actor.miner` `actor.lumberjack` `actor.templar` `actor.angel` `actor.skeleton` |
+| monsters & effects | `monster.crash` `monster.oom` `fx.gas` `fx.skull` |
+| props | `prop.configmap` `prop.secret` `prop.pvc` `prop.ore` `prop.gold` |
+| ui | `ui.ribbon` `ui.icon.question` `ui.icon.alert` `ui.icon.wait` `ui.icon.star` |
 
-1. `assets/` is **git-ignored**. The repo contains only `apps/web/realm/manifest.json`
-   (a list of *which* files we use, their frame grids and animations) — no art.
-2. `pnpm realm:assets` copies the referenced files from `KMATE_ASSETS_DIR` (default
-   `../../assets`) into `apps/web/public/realm/` (also git-ignored) and writes
-   `public/realm/index.json`. If the directory is missing the build still succeeds and
-   the Realm route shows an "assets not installed" placeholder.
-3. Container images: `deploy/docker/hub.Dockerfile` copies `assets/` into the web build
-   stage when it is present in the build context (`COPY .gitignore assets* /realm-assets/`
-   with `KMATE_ASSETS_DIR=/realm-assets`), so `make images` on a machine that has the
-   packs bakes the 69 referenced sprites (about 550 KB) into the bundle. Without the
-   packs the build still succeeds and the Realm route shows the placeholder. Images
-   built **with** the art must stay in a **private registry**, since the licence
-   forbids redistribution.
-4. Attribution "Art: Cute Fantasy by Kenmi" in the legend panel.
+Three rules keep the contract cheap to satisfy:
+
+1. **Every role is optional.** A missing role draws a placeholder rectangle sized to its
+   footprint and logs once, so a half-finished theme still renders. Missing `ui.icon.*`
+   roles fall back to a drawn bubble with a glyph, and a missing `decor.flag` or
+   `building.cronjob.sail` is simply skipped.
+2. **Animations are optional.** A role may be one static image. The renderer then
+   substitutes motion: walking bobs, working hops, hurt flashes red, death shrinks and
+   fades, and a sail without a spin animation is rotated procedurally. This is what lets
+   a theme built from plain 16 px tiles feel alive.
+3. **Variants are seeded.** A role may list several entries; callers pass a seed string
+   (usually the namespace) and always get the same pick, which is how namespaces keep
+   distinct house colours. When an animation is required the picker prefers a variant
+   that actually has it, so a pod being created finds a character that can swing a hammer.
+
+### Authoring a theme
+
+Create `apps/web/themes/<id>/theme.json`:
+
+```jsonc
+{
+  "id": "my-theme", "name": "My Theme", "author": "…", "license": "…", "url": "…",
+  "tileSize": 16,
+  "source": "bundled",          // art committed next to this file · "external" = from KMATE_ASSETS_DIR
+  "roles": {
+    "tile.water":  { "color": 1612213 },                       // solid colour tile
+    "tile.path":   { "src": "sprites/town.png", "at": [4, 3] }, // one cell of a grid
+    "decor.fence": { "src": "sprites/town.png",
+                     "parts": { "tl": [8,3], "h": [9,3], "tr": [10,3], "v": [8,4], "bl": [8,6], "br": [10,6] } },
+    "building.deployment.t1": { "src": "sprites/town.png",      // build a house from tiles
+                     "compose": [[[0,4],[1,4],[2,4]], [[0,6],[1,7],[3,6]]],
+                     "footprint": { "w": 3, "h": 2, "yard": 2 } },
+    "actor.villager": [ { "src": "sprites/dungeon.png", "at": [1,7], "anchor": {"x":0.5,"y":0.9}, "scale": 1.25 } ],
+    "actor.knight":  { "src": "hero.png", "frame": {"w":48,"h":48},   // or a real sheet
+                       "anims": { "idle_down": {"row":0,"from":0,"to":5,"fps":6} } }
+  }
+}
+```
+
+Entry fields: `src` · `rect` · `tile` · `at` · `frame` + `anims` · `parts` · `compose` ·
+`footprint` · `anchor` · `scale` · `tint` · `color`. `compose` renders a grid of cells
+into a single texture once at load, which is how a theme with only wall and roof tiles
+produces whole buildings. `footprint` is in tiles and feeds the world builder's packing,
+so a theme with small art gets a denser realm automatically.
+
+`pnpm realm:assets` publishes every theme into `public/themes/<id>/` (git-ignored) with
+URL-safe filenames and writes `public/themes/index.json` listing which ones have art. It
+runs automatically before `dev` and `build`.
+
+### The two shipped themes
+
+| Theme | Source | Licence | Shipped in the repo |
+|---|---|---|---|
+| **Tiny (CC0)** — Kenney [Tiny Town](https://kenney.nl/assets/tiny-town) + [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) | `bundled` | CC0 1.0, no attribution required | **yes**, ~10 KB in `themes/tiny/sprites/` with both `License.txt` files |
+| **Cute Fantasy** — Kenmi | `external` | commercial use OK, **redistribution prohibited** | **no**, only the mapping. Point `KMATE_ASSETS_DIR` at your own copy of the packs |
+
+Only `source: "external"` art stays out of git. `Cute_Fantasy_Free` is refused by the
+publish script because it is non-commercial.
+
+The default theme is Cute Fantasy when its art is present and Tiny otherwise, and the
+user can switch live from the legend panel. Container images built from a machine that
+has the licensed packs contain them, so those images must stay in a **private registry**;
+an image built without them still ships the Tiny theme and works for everyone.
 
 ## 7. Data flow
 

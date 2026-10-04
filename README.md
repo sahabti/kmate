@@ -104,24 +104,30 @@ For a real deployment on GKE behind a private gateway, see
 
 ### Realm View
 
-The pixel-art cluster map is rendered from commercial art packs that cannot be
-redistributed, so they are not in this repository. Without them the rest of KMate
-works normally and the Realm route shows a placeholder.
+The pixel-art cluster map works out of the box: it ships with a **CC0 theme** built from
+Kenney's [Tiny Town](https://kenney.nl/assets/tiny-town) and
+[Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) packs, which are in this repository
+and need no setup.
 
-To enable it, buy the [Cute Fantasy](https://kenmi-art.itch.io/cute-fantasy-rpg)
-packs, unpack them anywhere, and point the build at them:
+The art is a **swappable theme**. The engine only asks for semantic roles
+(`building.deployment.t2`, `actor.villager`, `monster.crash`) and a theme maps those onto
+its own sprites, so you can restyle the whole realm without touching engine code. Themes
+live in `apps/web/themes/<id>/theme.json`; see
+[docs/11-realm-view.md](docs/11-realm-view.md) for the role list and how to author one.
+Animations are optional, so a theme made of plain static tiles still gets walking, working
+and dying motion.
+
+A second theme maps the commercial [Cute Fantasy](https://kenmi-art.itch.io/cute-fantasy-rpg)
+packs by Kenmi. That art cannot be redistributed, so only the mapping is in the repository.
+To use it, buy the packs and point the build at them:
 
 ```bash
 cd apps/web
-KMATE_ASSETS_DIR=/path/to/cute-fantasy pnpm realm:assets   # copies the ~69 sprites it needs
+KMATE_ASSETS_DIR=/path/to/cute-fantasy pnpm realm:assets
 ```
 
 Or drop the packs in `assets/` at the repo root, which is the default location and is
-git-ignored. `pnpm dev` and `pnpm build` pick them up automatically from there.
-
-Container builds work the same way: `make images` bakes the sprites into the hub
-image when the packs are in the build context. Keep such images in a private
-registry, since the licence forbids redistribution.
+git-ignored. Pick the theme from the legend panel in the Realm view; it switches live.
 
 ## Security
 

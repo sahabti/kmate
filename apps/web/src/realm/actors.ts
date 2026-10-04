@@ -10,8 +10,8 @@
  * (hidden and not updated) and animation phases are staggered by a hash so a
  * thousand villagers never step in sync.
  */
-import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, type Ticker } from "pixi.js";
-import { anchorOf, getAnim, getSprite, hasAnim } from "./assets";
+import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle, type Texture, type Ticker } from "pixi.js";
+import type { Theme } from "./theme";
 import { TILE, fnv1a, type Actor, type ActorState, type Rect } from "./world";
 
 export type ActorTarget = { type: "actor"; a: Actor };
@@ -22,6 +22,8 @@ export interface ActorHost {
   fx: Container;
   track<T extends Text>(t: T): T;
   smallStyle(): TextStyle;
+  /** Active theme; read per call so a live theme swap is picked up. */
+  theme(): Theme;
   onHover(t: ActorTarget | null, sx: number, sy: number): void;
   onClick(t: ActorTarget): void;
   isDrag(): boolean;
@@ -48,7 +50,7 @@ interface Rt {
   a: Actor;
   c: Container;
   body: AnimatedSprite;
-  bubble: Sprite | null;
+  bubble: Container | null;
   label: Text | null;
   slimes: Slime[];
   scorch: Graphics | null;
@@ -67,6 +69,9 @@ interface Rt {
   facing: "down" | "side" | "up";
   flip: boolean;
   t: number; // local clock ms
+  /** Motion substituted for a missing animation in static themes. */
+  proc: "none" | "bob" | "hop";
+  deathT: number;
   onScreen: boolean;
   removeAfterFade: boolean;
 }
@@ -82,6 +87,9 @@ function mulberry32(seed: number) {
   };
 }
 
+const BUBBLE_ROLE = { question: "ui.icon.question", hourglass: "ui.icon.wait", exclaim: "ui.icon.alert", star: "ui.icon.star" } as const;
+const BUBBLE_GLYPH = { question: "?", hourglass: "\u2026", exclaim: "!", star: "*" } as const;
+
 const inRect = (x: number, y: number, r: Rect, pad = 0) => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
 
 export class ActorSystem {
@@ -90,6 +98,14 @@ export class ActorSystem {
   private firstSyncDone = false;
 
   constructor(private host: ActorHost) {}
+
+  private get theme() { return this.host.theme(); }
+  /** Theme role for an actor, e.g. "actor.villager". */
+  private roleOf(a: Actor) { return `actor.${a.role}`; }
+  private framesOf(a: Actor, name: string): { frames: Texture[]; fps: number; loop: boolean } | null {
+    return this.theme.anim(this.roleOf(a), name, a.variant);
+  }
+  private stillOf(a: Actor): Texture { return this.theme.texture(this.roleOf(a), a.variant); }
 
   count() { return this.rts.size; }
 
@@ -119,7 +135,7 @@ export class ActorSystem {
     rt.removeAfterFade = false;
     (rt.c as Container & { ns?: string }).ns = a.namespace;
     const moved = prev.x !== a.x || prev.y !== a.y;
-    const stateChanged = prev.state !== a.state || prev.sheet !== a.sheet || prev.restarts !== a.restarts || prev.initProgress !== a.initProgress;
+    const stateChanged = prev.state !== a.state || prev.role !== a.role || prev.variant !== a.variant || prev.restarts !== a.restarts || prev.initProgress !== a.initProgress;
     // A pod that was waiting on the shore (Pending, unscheduled) got a node: it enters the
     // village through the gate and walks to its house instead of teleporting.
     if (prev.state === "pending" && a.state !== "pending" && a.state !== "terminating" && a.spawn && this.firstSyncDone) {
@@ -138,7 +154,7 @@ export class ActorSystem {
         rt.mode = "walk";
       }
     }
-    if (prev.sheet !== a.sheet) {
+    if (prev.role !== a.role || prev.variant !== a.variant) {
       this.rebuildBody(rt);
     }
     if (stateChanged) this.applyState(rt, prev.state);
@@ -171,17 +187,18 @@ export class ActorSystem {
     (c as Container & { ns?: string }).ns = a.namespace;
     const seed = fnv1a(a.uid);
     const rng = mulberry32(seed);
-    const body = new AnimatedSprite(getAnim(a.sheet, "idle_down").frames);
+    const body = new AnimatedSprite(this.framesOf(a, "idle_down")?.frames ?? [this.stillOf(a)]);
     body.autoUpdate = false;
-    const an = anchorOf(a.sheet);
+    const an = this.theme.anchor(this.roleOf(a), a.variant);
     body.anchor.set(an.x, an.y);
+    body.scale.set(this.theme.scale(this.roleOf(a), a.variant));
     c.addChild(body);
     const rt: Rt = {
       a, c, body, bubble: null, label: null, slimes: [], scorch: null, bomb: null, gas: null,
       pos: { x: a.x, y: a.y }, home: { x: a.x, y: a.y }, target: null, mode: "idle",
       waitMs: WANDER.idleMinMs + rng() * (WANDER.idleMaxMs - WANDER.idleMinMs), hurtInMs: 0, fadeMs: 0,
       seed, rng, anim: "", facing: (["down", "side", "up"] as const)[seed % 3]!, flip: seed % 2 === 1, t: seed % 1000,
-      onScreen: true, removeAfterFade: false,
+      proc: "none", deathT: 0, onScreen: true, removeAfterFade: false,
     };
     body.eventMode = "static";
     body.cursor = "pointer";
@@ -204,10 +221,11 @@ export class ActorSystem {
   private rebuildBody(rt: Rt) {
     const a = rt.a;
     const old = rt.body;
-    const body = new AnimatedSprite(getAnim(a.sheet, "idle_down").frames);
+    const body = new AnimatedSprite(this.framesOf(a, "idle_down")?.frames ?? [this.stillOf(a)]);
     body.autoUpdate = false;
-    const an = anchorOf(a.sheet);
+    const an = this.theme.anchor(this.roleOf(a), a.variant);
     body.anchor.set(an.x, an.y);
+    body.scale.set(this.theme.scale(this.roleOf(a), a.variant));
     body.eventMode = "static";
     body.cursor = "pointer";
     body.on("pointerover", (e) => { body.tint = 0xfff2b0; this.host.onHover({ type: "actor", a: rt.a }, e.global.x, e.global.y); });
@@ -262,7 +280,7 @@ export class ActorSystem {
         break;
       case "evicted":
         this.stopEffects(rt);
-        rt.a = { ...a, sheet: "skeleton" };
+        rt.a = { ...a, role: "skeleton" };
         this.rebuildBody(rt);
         rt.a = a;
         rt.mode = "leaving";
@@ -286,7 +304,7 @@ export class ActorSystem {
     // restarts ribbon: also while crashing (slimes show the count too, capped) — hidden only while creating/terminating
     if (a.restarts > 0 && a.state !== "creating" && a.state !== "terminating") this.ribbon(rt, `!${a.restarts}`);
     if (rt.mode === "idle") this.play(rt, `idle_${rt.facing}`, true);
-    else if (rt.mode === "work") this.play(rt, hasAnim(a.sheet, "work") ? "work" : `idle_${rt.facing}`, true);
+    else if (rt.mode === "work") this.play(rt, "work", true);
   }
 
   private worksWhenIdle(rt: Rt) {
@@ -299,13 +317,30 @@ export class ActorSystem {
   }
 
   // ---------- effects ----------
-  private bubble(rt: Rt, icon: string) {
+  /** Status bubble: the theme's icon when it has one, otherwise a drawn glyph. */
+  private bubble(rt: Rt, icon: "question" | "hourglass" | "exclaim" | "star") {
     this.clearBubble(rt);
-    const ic = new Sprite(getSprite("ui_icons", icon));
-    ic.anchor.set(0.5, 1);
-    ic.position.set(0, -this.headY(rt) - 2);
-    rt.c.addChild(ic);
-    rt.bubble = ic;
+    const role = BUBBLE_ROLE[icon];
+    let node: Container;
+    if (this.theme.has(role)) {
+      const ic = new Sprite(this.theme.texture(role));
+      const a = this.theme.anchor(role);
+      ic.anchor.set(a.x, a.y);
+      ic.scale.set(this.theme.scale(role));
+      node = ic;
+    } else {
+      node = new Container();
+      const box = new Graphics().roundRect(-7, -14, 14, 14, 3).fill({ color: 0xf0d9a8 }).roundRect(-7, -14, 14, 14, 3).stroke({ color: 0x3a2a18, width: 1 });
+      const t = this.host.track(new Text({ text: BUBBLE_GLYPH[icon], style: this.host.smallStyle() }));
+      t.anchor.set(0.5, 0.5);
+      t.position.set(0, -7);
+      t.style.fill = 0x2a1c12;
+      t.style.stroke = { color: 0xf0d9a8, width: 1 };
+      node.addChild(box, t);
+    }
+    node.position.set(0, -this.headY(rt) - 2);
+    rt.c.addChild(node);
+    rt.bubble = node;
   }
   private clearBubble(rt: Rt) { rt.bubble?.destroy(); rt.bubble = null; }
   private ribbon(rt: Rt, text: string) {
@@ -317,16 +352,19 @@ export class ActorSystem {
     rt.label = t;
   }
   private clearLabel(rt: Rt) { rt.label?.destroy(); rt.label = null; }
-  private headY(rt: Rt) { return rt.body.height * anchorOf(rt.a.sheet).y; }
+  private headY(rt: Rt) { return rt.body.height * this.theme.anchor(this.roleOf(rt.a), rt.a.variant).y; }
 
   private ensureSlimes(rt: Rt, n: number) {
     while (rt.slimes.length > n) rt.slimes.pop()!.sp.destroy();
     while (rt.slimes.length < n) {
-      const sp = new AnimatedSprite(getAnim("slime_red", "jump").frames);
+      const def = this.theme.anim("monster.crash", "jump");
+      const sp = new AnimatedSprite(def?.frames ?? [this.theme.texture("monster.crash")]);
       sp.autoUpdate = false;
       sp.animationSpeed = 10 / 60;
-      sp.anchor.set(0.5, 0.75);
-      sp.gotoAndPlay((rt.seed + rt.slimes.length * 3) % sp.totalFrames);
+      const ma = this.theme.anchor("monster.crash");
+      sp.anchor.set(ma.x, ma.y);
+      sp.scale.set(this.theme.scale("monster.crash"));
+      if (sp.totalFrames > 1) sp.gotoAndPlay((rt.seed + rt.slimes.length * 3) % sp.totalFrames);
       rt.c.addChild(sp);
       rt.slimes.push({ sp, phase: (rt.seed % 628) / 100 + rt.slimes.length * 2.1, r: 12 + rt.slimes.length * 3 });
     }
@@ -343,20 +381,28 @@ export class ActorSystem {
   /** Bombschroom walks up, explodes, leaves gas and a scorch mark. */
   private explode(rt: Rt) {
     this.clearOom(rt);
-    const bomb = new AnimatedSprite(getAnim("bombschroom", "fuse").frames);
+    const oomA = this.theme.anchor("monster.oom");
+    const oomS = this.theme.scale("monster.oom");
+    const fuse = this.theme.anim("monster.oom", "fuse");
+    const bomb = new AnimatedSprite(fuse?.frames ?? [this.theme.texture("monster.oom")]);
     bomb.autoUpdate = false;
     bomb.animationSpeed = 10 / 60;
     bomb.loop = false;
-    bomb.anchor.set(0.5, 0.95);
+    bomb.anchor.set(oomA.x, oomA.y);
+    bomb.scale.set(oomS);
     bomb.position.set(16, 1);
+    // Static themes have no fuse animation: detonate on the next frame instead.
+    if (!fuse) setTimeout(() => { if (!bomb.destroyed) bomb.onComplete?.(); }, 400);
     bomb.onComplete = () => {
-      const boom = new AnimatedSprite(getAnim("bombschroom", "explode").frames);
+      if (bomb.destroyed) return;
+      const expl = this.theme.anim("monster.oom", "explode");
+      const boom = new AnimatedSprite(expl?.frames ?? [this.theme.texture("fx.gas")]);
       boom.autoUpdate = false;
       boom.animationSpeed = 10 / 60;
       boom.loop = false;
-      boom.anchor.set(0.5, 0.95);
+      boom.anchor.set(oomA.x, oomA.y);
       boom.position.copyFrom(bomb.position);
-      boom.scale.set(2);
+      boom.scale.set(2 * oomS);
       rt.c.addChild(boom);
       bomb.destroy();
       rt.bomb = boom;
@@ -364,48 +410,67 @@ export class ActorSystem {
       scorch.position.set(16, 2);
       rt.c.addChildAt(scorch, 0);
       rt.scorch = scorch;
-      const gas = new AnimatedSprite(getAnim("toxic_gas", "puff").frames);
+      const gasDef = this.theme.anim("fx.gas", "puff");
+      const gas = new AnimatedSprite(gasDef?.frames ?? [this.theme.texture("fx.gas")]);
       gas.autoUpdate = false;
       gas.animationSpeed = 8 / 60;
       gas.loop = false;
-      gas.anchor.set(0.5, 0.8);
+      const ga = this.theme.anchor("fx.gas");
+      gas.anchor.set(ga.x, ga.y);
+      gas.scale.set(this.theme.scale("fx.gas"));
+      if (!gasDef) setTimeout(() => { if (!gas.destroyed) gas.onComplete?.(); }, 900);
       gas.position.set(rt.pos.x + 16, rt.pos.y - 4);
       gas.onComplete = () => { gas.destroy(); if (rt.gas === gas) rt.gas = null; };
       this.host.fx.addChild(gas);
       rt.gas = gas;
       boom.onComplete = () => { boom.destroy(); if (rt.bomb === boom) rt.bomb = null; };
-      boom.play();
+      if (expl) boom.play(); else setTimeout(() => { if (!boom.destroyed) boom.onComplete?.(); }, 600);
       this.play(rt, "hurt", false, () => this.play(rt, `idle_${rt.facing}`, true));
     };
     rt.c.addChild(bomb);
     rt.bomb = bomb;
-    bomb.play();
+    if (fuse) bomb.play();
   }
 
   // ---------- animation ----------
+  /**
+   * Play an animation. A theme made of static tiles has none, so the motion is
+   * substituted procedurally: walking bobs, working hops, hurt flashes red and
+   * death shrinks away. `rt.proc` carries the substitution to `step`.
+   */
   private play(rt: Rt, name: string, loop: boolean, onComplete?: () => void) {
-    const sheet = rt.a.sheet;
+    const a = rt.a;
     let n = name;
-    if (!hasAnim(sheet, n)) {
+    const has = (x: string) => this.theme.hasAnim(this.roleOf(a), x, a.variant);
+    if (!has(n)) {
       if (n === "hurt") { // flash instead
         rt.body.tint = 0xff8080;
         setTimeout(() => { if (!rt.body.destroyed && rt.a.state !== "unknown") rt.body.tint = 0xffffff; }, 250);
         onComplete?.();
         return;
       }
-      if (n === "death") { onComplete?.(); rt.mode = "fading"; rt.fadeMs = WANDER.fadeMs; return; }
-      n = `idle_${rt.facing}`;
-      if (!hasAnim(sheet, n)) n = "idle_down";
+      if (n === "death") { onComplete?.(); rt.mode = "fading"; rt.fadeMs = WANDER.fadeMs; rt.deathT = 0; return; }
+      // static substitute + procedural motion
+      rt.proc = n.startsWith("walk") ? "bob" : n === "work" ? "hop" : "none";
+      const key = `still|${n}`;
+      if (rt.anim === key) return;
+      rt.anim = key;
+      rt.body.textures = [this.stillOf(a)];
+      rt.body.loop = false;
+      rt.body.stop();
+      rt.body.scale.x = Math.abs(rt.body.scale.x) * (rt.flip && n.endsWith("_side") ? -1 : 1);
+      return;
     }
+    rt.proc = "none";
     const key = `${n}|${loop}`;
     if (rt.anim === key && !onComplete) return;
     rt.anim = key;
-    const def = getAnim(sheet, n);
+    const def = this.framesOf(a, n)!;
     rt.body.textures = def.frames;
     rt.body.loop = loop;
     rt.body.animationSpeed = def.fps / 60;
     rt.body.onComplete = onComplete ?? undefined;
-    rt.body.scale.x = rt.flip && (n.endsWith("_side")) ? -1 : 1;
+    rt.body.scale.x = Math.abs(rt.body.scale.x) * (rt.flip && n.endsWith("_side") ? -1 : 1);
     if (loop) rt.body.gotoAndPlay(rt.seed % def.frames.length);
     else rt.body.gotoAndPlay(0);
   }
@@ -466,7 +531,7 @@ export class ActorSystem {
         else {
           rt.mode = a.state === "creating" || this.worksWhenIdle(rt) ? "work" : "idle";
           rt.waitMs = WANDER.idleMinMs + rt.rng() * (WANDER.idleMaxMs - WANDER.idleMinMs);
-          this.play(rt, rt.mode === "work" && hasAnim(a.sheet, "work") ? "work" : `idle_${rt.facing}`, true);
+          this.play(rt, rt.mode === "work" ? "work" : `idle_${rt.facing}`, true);
         }
       } else {
         this.faceTowards(rt, dx, dy);
@@ -502,6 +567,17 @@ export class ActorSystem {
         rt.hurtInMs = WANDER.hurtEveryMs;
         this.play(rt, "hurt", false, () => this.play(rt, `idle_${rt.facing}`, true));
       }
+    }
+    // procedural motion for themes without animation frames
+    if (rt.proc === "bob") rt.body.y = -Math.abs(Math.sin(rt.t / 110) * 2);
+    else if (rt.proc === "hop") rt.body.y = -Math.abs(Math.sin(rt.t / 190) * 3);
+    else if (a.role !== "angel") rt.body.y = 0;
+    if (rt.mode === "fading" && rt.proc !== "none") { /* keep the substituted pose while fading */ }
+    // a death with no animation shrinks away instead
+    if (rt.mode === "fading" && !this.theme.hasAnim(this.roleOf(a), "death", a.variant) && a.state === "terminating") {
+      rt.deathT += ms;
+      const k = Math.max(0.2, 1 - rt.deathT / WANDER.fadeMs);
+      rt.c.scale.set(k);
     }
     // angels hover, bubbles bob
     if (a.role === "angel") rt.body.y = Math.round(Math.sin(rt.t / 400) * 3) - 6;

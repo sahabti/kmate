@@ -4,8 +4,8 @@
  * Keeps an id → display object map so unchanged things keep their sprites.
  */
 import { AnimatedSprite, Container, Graphics, NineSliceSprite, Sprite, Text, TextStyle, Texture, TilingSprite, type Application, type Ticker } from "pixi.js";
-import { anchorOf, getAnim, getSprite, getTexture, getTile, hasAnim } from "./assets";
-import { TILE, fnv1a, type Actor, type Building, type Bridge, type Health, type Island, type Plot, type Prop, type Rect, type Signpost, type World } from "./world";
+import type { Theme } from "./theme";
+import { TILE, type Actor, type Building, type Bridge, type Health, type Island, type Plot, type Prop, type Rect, type Signpost, type World } from "./world";
 import { ActorSystem } from "./actors";
 
 export type Target =
@@ -25,6 +25,11 @@ export interface RendererCallbacks {
   viewport(): Rect;
 }
 
+/** Prop kinds in the world model map onto theme roles. */
+const PROP_ROLE: Record<string, string> = {
+  chest: "prop.configmap", golden_chest: "prop.secret", barrel: "prop.pvc",
+  ores: "prop.ore", gold: "prop.gold", lantern: "decor.lantern",
+};
 const HEALTH_COLOR: Record<Health, number> = { ok: 0x3ddc84, warn: 0xf5b840, bad: 0xf05252, off: 0x8a94a3 };
 const FONT = "\"Pixelify Sans\", CuteFantasy, monospace";
 const labelStyle = () => new TextStyle({ fontFamily: FONT, fontSize: 12, fill: 0xfff6dc, stroke: { color: 0x1a1210, width: 2 }, letterSpacing: 0 });
@@ -53,6 +58,7 @@ export class RealmRenderer {
   private waterT = 0;
   private tooltip: { box: NineSliceSprite | Graphics; text: Text; root: Container } | null = null;
   private dimNs = "";
+  private spinners = new Set<Sprite>();
   private texts = new Set<Text>();
   private textRes = 2;
   private tick = (t: Ticker) => this.update(t);
@@ -73,13 +79,13 @@ export class RealmRenderer {
     for (const t of this.texts) t.resolution = r;
   }
 
-  constructor(private app: Application, world: Container, private cb: RendererCallbacks) {
+  constructor(private app: Application, world: Container, private theme: Theme, private cb: RendererCallbacks) {
     this.actors.sortableChildren = true;
     this.buildings.sortableChildren = true;
     world.addChild(this.sea, this.ground, this.plots, this.props, this.buildings, this.actors, this.fx, this.weather);
     this.actorSys = new ActorSystem({
       layer: this.actors, fx: this.fx,
-      track: (t) => this.track(t), smallStyle,
+      track: (t) => this.track(t), smallStyle, theme: () => this.theme,
       onHover: (t, sx, sy) => this.cb.onHover(t, sx, sy), onClick: (t) => this.cb.onClick(t), isDrag: () => this.cb.isDrag(),
     });
     app.stage.addChild(this.ui);
@@ -96,6 +102,26 @@ export class RealmRenderer {
   }
 
   setDim(ns: string) { this.dimNs = ns; this.applyDim(); }
+
+  /** Swap the art without rebuilding the world model: drop every sprite and re-sync. */
+  setTheme(theme: Theme, w: World) {
+    this.theme = theme;
+    for (const [, obj] of this.objs) { obj.parent?.removeChild(obj); obj.destroy({ children: true }); }
+    this.objs.clear();
+    this.sig.clear();
+    this.badges.clear();
+    this.tweens = [];
+    this.water?.destroy();
+    this.water = null;
+    this.waterFrames = [];
+    this.actorSys.destroyAll();
+    this.sync(w);
+  }
+
+  /** Animation frames for a role, or a single still frame when the theme has none. */
+  private framesOf(role: string, name: string, seed = ""): Texture[] {
+    return this.theme.anim(role, name, seed)?.frames ?? [this.theme.texture(role, seed)];
+  }
 
   /** Above this many villagers the ×1 overview switches to ready/desired badges for performance. */
   static readonly LOD_ACTOR_LIMIT = 1500;
@@ -157,7 +183,7 @@ export class RealmRenderer {
     keep.add("sea");
     const wpx = (w.bounds.w + 40) * TILE, hpx = (w.bounds.h + 40) * TILE;
     if (!this.water) {
-      this.waterFrames = getAnim("water", "flow").frames;
+      this.waterFrames = this.framesOf("tile.water", "flow");
       this.water = new TilingSprite({ texture: this.waterFrames[0]!, width: wpx, height: hpx });
       this.water.position.set(-20 * TILE, -20 * TILE);
       this.sea.addChild(this.water);
@@ -179,42 +205,46 @@ export class RealmRenderer {
     c.label = id;
     const { x, y, w, h } = isl.rect;
     // plateau tiles from the cliff sheet: block cols 1-3, rows 0-2 top, 3-4 wall, 5 foot
-    const tileAt = (col: number, row: number, tx: number, ty: number) => {
-      const sp = new Sprite(getTile("cliff", col, row));
+    const tileAt = (part: string, tx: number, ty: number) => {
+      const sp = new Sprite(this.theme.part("tile.cliff", part));
       sp.position.set(tx * TILE, ty * TILE);
+      sp.width = TILE; sp.height = TILE;
       c.addChild(sp);
     };
+    const colName = (tx: number) => (tx === 0 ? "l" : tx === w - 1 ? "r" : "c");
     for (let ty = 0; ty < h; ty++)
       for (let tx = 0; tx < w; tx++) {
-        const col = tx === 0 ? 1 : tx === w - 1 ? 3 : 2;
-        const row = ty === 0 ? 0 : ty === h - 1 ? 2 : 1;
-        tileAt(col, row, x + tx, y + ty);
+        const row = ty === 0 ? "top" : ty === h - 1 ? "bot" : "mid";
+        tileAt(`${row}.${colName(tx)}`, x + tx, y + ty);
       }
     for (let tx = 0; tx < w; tx++) {
-      const col = tx === 0 ? 1 : tx === w - 1 ? 3 : 2;
-      tileAt(col, 3, x + tx, y + h);
-      tileAt(col, 4, x + tx, y + h + 1);
-      tileAt(col, 5, x + tx, y + h + 2);
+      tileAt(`wall.${colName(tx)}`, x + tx, y + h);
+      tileAt(`wall2.${colName(tx)}`, x + tx, y + h + 1);
+      tileAt(`foot.${colName(tx)}`, x + tx, y + h + 2);
     }
     // volcano overlay for NotReady nodes
     if (!isl.ready) {
       const g = new Graphics().rect(x * TILE, y * TILE, w * TILE, h * TILE).fill({ color: 0x5a1e12, alpha: 0.45 });
       c.addChild(g);
-      const skull = new AnimatedSprite(getAnim("flying_skull", "fly").frames);
-      skull.animationSpeed = 8 / 60; skull.play();
+      const skull = new AnimatedSprite(this.framesOf("fx.skull", "fly"));
+      skull.animationSpeed = 8 / 60; if (skull.totalFrames > 1) skull.play();
+      skull.scale.set(this.theme.scale("fx.skull"));
       skull.anchor.set(0.5, 0.6);
       skull.position.set((x + w / 2) * TILE, (y + 2) * TILE);
       c.addChild(skull);
     }
     // control plane lookout tower with flag (top-right corner)
     if (isl.controlPlane) {
-      const t = new Sprite(getSprite("lookout_tower", "roof"));
-      t.anchor.set(0.5, 0.95);
+      const t = new Sprite(this.theme.texture("decor.tower"));
+      const ta = this.theme.anchor("decor.tower");
+      t.anchor.set(ta.x, ta.y);
+      t.scale.set(this.theme.scale("decor.tower"));
       t.position.set((x + w - 3) * TILE, (y + 8) * TILE);
       c.addChild(t);
-      if (hasAnim("flags", "blue")) {
-        const f = new AnimatedSprite(getAnim("flags", "blue").frames);
-        f.animationSpeed = 6 / 60; f.play();
+      if (this.theme.has("decor.flag")) {
+        const def = this.theme.anim("decor.flag", "blue");
+        const f = new AnimatedSprite(def?.frames ?? [this.theme.texture("decor.flag")]);
+        f.animationSpeed = 6 / 60; if (f.totalFrames > 1) f.play();
         f.anchor.set(0.5, 1);
         f.position.set((x + w - 3) * TILE + 20, (y + 0.6) * TILE);
         c.addChild(f);
@@ -222,9 +252,10 @@ export class RealmRenderer {
     }
     // cordon: palisade gate closed at the south-west + spikes tint
     if (isl.cordoned) {
-      const g = new AnimatedSprite(getAnim("palisade_gate", "open").frames);
+      const g = new AnimatedSprite(this.framesOf("decor.gate", "open"));
       g.gotoAndStop(0);
       g.anchor.set(0.5, 0.9);
+      g.scale.set(this.theme.scale("decor.gate"));
       g.position.set((x + 4) * TILE, (y + h) * TILE);
       c.addChild(g);
     }
@@ -260,27 +291,34 @@ export class RealmRenderer {
     c.label = id;
     (c as Container & { ns?: string }).ns = plot.namespace;
     const { x, y, w, h } = plot.rect;
-    const fence = plot.system ? "hedge" : "fences";
-    const tile = (col: number, row: number, tx: number, ty: number) => {
-      const sp = new Sprite(getTile(fence, col, row));
+    const fence = plot.system ? "decor.hedge" : "decor.fence";
+    const tile = (part: string, tx: number, ty: number) => {
+      const sp = new Sprite(this.theme.part(fence, part));
       sp.position.set(tx * TILE, ty * TILE);
+      sp.width = TILE; sp.height = TILE;
       c!.addChild(sp);
+    };
+    const path = (tx: number, ty: number) => {
+      const p = new Sprite(this.theme.texture("tile.path"));
+      p.position.set(tx * TILE, ty * TILE);
+      p.width = TILE; p.height = TILE;
+      c!.addChild(p);
     };
     const gateL = Math.floor(w / 2) - 1, gateR = gateL + 2;
     for (let tx = 0; tx < w; tx++) {
-      const top = tx === 0 ? [1, 1] : tx === w - 1 ? [3, 1] : [2, 0];
-      tile(top[0]!, top[1]!, x + tx, y);
+      tile(tx === 0 ? "tl" : tx === w - 1 ? "tr" : "h", x + tx, y);
       if (tx >= gateL && tx < gateR) continue; // gate in the south fence
-      const bot = tx === 0 ? [1, 3] : tx === w - 1 ? [3, 3] : [2, 0];
-      tile(bot[0]!, bot[1]!, x + tx, y + h - 1);
+      tile(tx === 0 ? "bl" : tx === w - 1 ? "br" : "h", x + tx, y + h - 1);
     }
-    for (let ty = 1; ty < h - 1; ty++) { tile(0, 1, x, y + ty); tile(0, 1, x + w - 1, y + ty); }
+    for (let ty = 1; ty < h - 1; ty++) { tile("v", x, y + ty); tile("v", x + w - 1, y + ty); }
     // path along the south inside the fence + gate stub
-    for (let tx = 1; tx < w - 1; tx++) { const p = new Sprite(getTexture("path_middle")); p.position.set((x + tx) * TILE, (y + h - 2) * TILE); c.addChild(p); }
-    for (let tx = gateL; tx < gateR; tx++) { const p = new Sprite(getTexture("path_middle")); p.position.set((x + tx) * TILE, (y + h - 1) * TILE); c.addChild(p); }
+    for (let tx = 1; tx < w - 1; tx++) path(x + tx, y + h - 2);
+    for (let tx = gateL; tx < gateR; tx++) path(x + tx, y + h - 1);
     // namespace sign + label
-    const post = new Sprite(getSprite("signs", "post_1"));
-    post.anchor.set(0.5, 0.95);
+    const post = new Sprite(this.theme.texture("decor.sign", plot.namespace));
+    const pa = this.theme.anchor("decor.sign");
+    post.anchor.set(pa.x, pa.y);
+    post.scale.set(this.theme.scale("decor.sign"));
     post.position.set((x + 2) * TILE, (y + 3) * TILE);
     c.addChild(post);
     const label = new Text({ text: plot.namespace + (plot.system ? " (system)" : ""), style: labelStyle() });
@@ -302,7 +340,7 @@ export class RealmRenderer {
   private syncBuilding(b: Building, keep: Set<string>) {
     const id = `b/${b.id}`;
     keep.add(id);
-    const s = `${b.sprite}|${b.spriteName ?? ""}|${b.x},${b.y}|${b.health}|${b.ready}/${b.desired}|${b.note ?? ""}`;
+    const s = `${b.role}|${b.variant}|${b.x},${b.y}|${b.health}|${b.ready}/${b.desired}|${b.note ?? ""}`;
     let c = this.objs.get(id);
     if (this.sig.get(id) === s && c) return;
     const existed = !!c;
@@ -312,32 +350,42 @@ export class RealmRenderer {
     c = new Container();
     c.label = id;
     (c as Container & { ns?: string }).ns = b.namespace;
-    const tex = b.spriteName ? getSprite(b.sprite, b.spriteName) : getTexture(b.sprite);
+    const tex = this.theme.texture(b.role, b.variant);
     const sp = new Sprite(tex);
-    const a = anchorOf(b.sprite);
-    sp.anchor.set(a.x, b.spriteName ? 1 : a.y);
+    const a = this.theme.anchor(b.role, b.variant);
+    const scale = this.theme.scale(b.role, b.variant);
+    sp.anchor.set(a.x, a.y);
+    sp.scale.set(scale);
+    const drawH = tex.height * scale, drawW = tex.width * scale;
     // health ring under the building
-    const ring = new Graphics().ellipse(0, 0, Math.max(24, tex.width * 0.45), 10).fill({ color: HEALTH_COLOR[b.health], alpha: 0.28 }).stroke({ color: HEALTH_COLOR[b.health], alpha: 0.7, width: 1 });
+    const ring = new Graphics().ellipse(0, 0, Math.max(20, drawW * 0.45), Math.max(6, drawW * 0.14)).fill({ color: HEALTH_COLOR[b.health], alpha: 0.28 }).stroke({ color: HEALTH_COLOR[b.health], alpha: 0.7, width: 1 });
     ring.position.set(0, -2);
     c.addChild(ring, sp);
-    if (b.sprite === "windmill") {
-      const sail = new AnimatedSprite(getAnim("windmill_sail", "spin").frames);
+    if (b.kind === "CronJob" && this.theme.has("building.cronjob.sail")) {
+      const def = this.theme.anim("building.cronjob.sail", "spin");
+      const sail = new AnimatedSprite(def?.frames ?? [this.theme.texture("building.cronjob.sail")]);
       sail.anchor.set(0.5, 0.5);
-      sail.position.set(6, -tex.height + 30);
-      sail.animationSpeed = (b.ready > 0 ? 6 : 0) / 60;
-      if (b.ready > 0) sail.play();
+      sail.scale.set(this.theme.scale("building.cronjob.sail"));
+      sail.position.set(6, -drawH + 30);
+      if (def && b.ready > 0) { sail.animationSpeed = 6 / 60; sail.play(); }
+      // Themes without a sail animation get a procedural spin instead.
+      if (!def && b.ready > 0) this.spinners.add(sail);
       c.addChild(sail);
     }
     if (b.note) {
-      const rib = new Sprite(getSprite("ui_ribbons", "flat"));
-      rib.anchor.set(0.5, 0.5);
-      rib.scale.set(0.5);
-      rib.position.set(0, -tex.height * (b.spriteName ? 1 : a.y) - 8);
+      const ribY = -drawH * a.y - 8;
+      if (this.theme.has("ui.ribbon")) {
+        const rib = new Sprite(this.theme.texture("ui.ribbon"));
+        rib.anchor.set(0.5, 0.5);
+        rib.scale.set(0.5);
+        rib.position.set(0, ribY);
+        c.addChild(rib);
+      }
       const t = new Text({ text: b.note, style: smallStyle() });
       this.track(t);
       t.anchor.set(0.5, 0.5);
-      t.position.set(0, rib.y - 1);
-      c.addChild(rib, t);
+      t.position.set(0, ribY - 1);
+      c.addChild(t);
     }
     if (b.kind !== "Job" && b.kind !== "CronJob") {
       // LOD badge: replaces the villagers with a ready/desired count only when they are hidden (huge realms at ×1)
@@ -378,15 +426,11 @@ export class RealmRenderer {
     if (this.sig.get(id) === s && c) return;
     this.sig.set(id, s);
     c?.destroy({ children: true });
-    let sp: Sprite;
-    switch (kind) {
-      case "chest": sp = new Sprite(getAnim("chest", "open").frames[0]!); sp.anchor.set(0.5, 0.9); break;
-      case "golden_chest": sp = new Sprite(getAnim("golden_chest", "open").frames[0]!); sp.anchor.set(0.5, 0.9); break;
-      case "barrel": sp = new Sprite(getSprite("barrels", "plain")); sp.anchor.set(0.5, 0.9); break;
-      case "ores": sp = new Sprite(getTile("ores", 1 + (fnv1a(id0) % 3), fnv1a(id0) % 8)); sp.anchor.set(0.5, 0.9); break;
-      case "gold": sp = new Sprite(getSprite("gold_piles", "big")); sp.anchor.set(0.5, 0.95); break;
-      default: sp = new Sprite(getTexture("lantern")); sp.anchor.set(0.5, 1);
-    }
+    const role = PROP_ROLE[kind] ?? "decor.lantern";
+    const sp = new Sprite(this.theme.texture(role, id0));
+    const pa = this.theme.anchor(role, id0);
+    sp.anchor.set(pa.x, pa.y);
+    sp.scale.set(this.theme.scale(role, id0));
     sp.position.set(x, y);
     sp.zIndex = y;
     c = sp;
@@ -426,20 +470,24 @@ export class RealmRenderer {
     c = new Container();
     c.label = id;
     (c as Container & { ns?: string }).ns = sg.namespace;
-    const post = new Sprite(getSprite("signs", ["post_1", "post_2", "post_3"][fnv1a(sg.service) % 3]!));
-    post.anchor.set(0.5, 0.95);
+    const post = new Sprite(this.theme.texture("decor.sign", sg.service));
+    const sa = this.theme.anchor("decor.sign", sg.service);
+    post.anchor.set(sa.x, sa.y);
+    post.scale.set(this.theme.scale("decor.sign", sg.service));
     if (!sg.ready) post.tint = 0xff9a9a;
     c.addChild(post);
-    if (sg.exposed) {
-      const l = new Sprite(getTexture("lantern"));
-      l.anchor.set(0.5, 1);
+    if (sg.exposed && this.theme.has("decor.lantern")) {
+      const l = new Sprite(this.theme.texture("decor.lantern"));
+      const la = this.theme.anchor("decor.lantern");
+      l.anchor.set(la.x, la.y);
+      l.scale.set(this.theme.scale("decor.lantern"));
       l.position.set(12, -2);
       c.addChild(l);
     }
     const t = new Text({ text: sg.service, style: smallStyle() });
     this.track(t);
     t.anchor.set(0.5, 1);
-    t.position.set(0, -post.height * 0.95 - 1);
+    t.position.set(0, -post.height * sa.y - 1);
     c.addChild(t);
     c.position.set(sg.x, sg.y);
     c.zIndex = sg.y;
@@ -464,14 +512,15 @@ export class RealmRenderer {
     c = new Container();
     c.label = id;
     (c as Container & { ns?: string }).ns = br.namespace;
-    const bridge = new Sprite(getSprite("bridge_stone", "deck"));
+    const bridge = new Sprite(this.theme.texture("decor.bridge"));
     bridge.anchor.set(0, 0.5);
+    bridge.scale.set(this.theme.scale("decor.bridge"));
     bridge.position.set(-6, 0);
     c.addChild(bridge);
-    const gate = new AnimatedSprite(getAnim("palisade_gate", "open").frames);
-    gate.gotoAndStop(2);
+    const gate = new AnimatedSprite(this.framesOf("decor.gate", "open"));
+    gate.gotoAndStop(Math.min(2, gate.totalFrames - 1));
     gate.anchor.set(0.5, 0.9);
-    gate.scale.set(0.5);
+    gate.scale.set(0.5 * this.theme.scale("decor.gate"));
     gate.position.set(-4, 12);
     c.addChild(gate);
     const pole = new Graphics().rect(0, 0, 2, 26).fill({ color: 0x5a3a1e });
@@ -552,6 +601,13 @@ export class RealmRenderer {
       this.waterT += ms;
       const i = Math.floor(this.waterT / 250) % this.waterFrames.length;
       if (this.water.texture !== this.waterFrames[i]) this.water.texture = this.waterFrames[i]!;
+    }
+    // procedural sail spin for themes with no sail animation
+    if (this.spinners.size) {
+      for (const sp of this.spinners) {
+        if (sp.destroyed) { this.spinners.delete(sp); continue; }
+        sp.rotation += ms / 900;
+      }
     }
     // tweens
     if (this.tweens.length) {

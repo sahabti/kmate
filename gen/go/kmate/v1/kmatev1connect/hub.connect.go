@@ -55,6 +55,22 @@ const (
 	// HubServiceListAuditEventsProcedure is the fully-qualified name of the HubService's
 	// ListAuditEvents RPC.
 	HubServiceListAuditEventsProcedure = "/kmate.v1.HubService/ListAuditEvents"
+	// HubServiceListUsersProcedure is the fully-qualified name of the HubService's ListUsers RPC.
+	HubServiceListUsersProcedure = "/kmate.v1.HubService/ListUsers"
+	// HubServiceCreateUserProcedure is the fully-qualified name of the HubService's CreateUser RPC.
+	HubServiceCreateUserProcedure = "/kmate.v1.HubService/CreateUser"
+	// HubServiceUpdateUserProcedure is the fully-qualified name of the HubService's UpdateUser RPC.
+	HubServiceUpdateUserProcedure = "/kmate.v1.HubService/UpdateUser"
+	// HubServiceDeleteUserProcedure is the fully-qualified name of the HubService's DeleteUser RPC.
+	HubServiceDeleteUserProcedure = "/kmate.v1.HubService/DeleteUser"
+	// HubServiceSetPasswordProcedure is the fully-qualified name of the HubService's SetPassword RPC.
+	HubServiceSetPasswordProcedure = "/kmate.v1.HubService/SetPassword"
+	// HubServiceListGrantsProcedure is the fully-qualified name of the HubService's ListGrants RPC.
+	HubServiceListGrantsProcedure = "/kmate.v1.HubService/ListGrants"
+	// HubServiceSetGrantProcedure is the fully-qualified name of the HubService's SetGrant RPC.
+	HubServiceSetGrantProcedure = "/kmate.v1.HubService/SetGrant"
+	// HubServiceDeleteGrantProcedure is the fully-qualified name of the HubService's DeleteGrant RPC.
+	HubServiceDeleteGrantProcedure = "/kmate.v1.HubService/DeleteGrant"
 )
 
 // HubServiceClient is a client for the kmate.v1.HubService service.
@@ -68,6 +84,16 @@ type HubServiceClient interface {
 	DeleteCluster(context.Context, *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error)
 	WatchClusters(context.Context, *connect.Request[v1.WatchClustersRequest]) (*connect.ServerStreamForClient[v1.ClusterEvent], error)
 	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
+	// User administration (admin only, except SetPassword on yourself).
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+	SetPassword(context.Context, *connect.Request[v1.SetPasswordRequest]) (*connect.Response[v1.SetPasswordResponse], error)
+	// Per-cluster access grants (admin only, except ListGrants for yourself).
+	ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error)
+	SetGrant(context.Context, *connect.Request[v1.SetGrantRequest]) (*connect.Response[v1.SetGrantResponse], error)
+	DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error)
 }
 
 // NewHubServiceClient constructs a client for the kmate.v1.HubService service. By default, it uses
@@ -135,6 +161,54 @@ func NewHubServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(hubServiceMethods.ByName("ListAuditEvents")),
 			connect.WithClientOptions(opts...),
 		),
+		listUsers: connect.NewClient[v1.ListUsersRequest, v1.ListUsersResponse](
+			httpClient,
+			baseURL+HubServiceListUsersProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("ListUsers")),
+			connect.WithClientOptions(opts...),
+		),
+		createUser: connect.NewClient[v1.CreateUserRequest, v1.CreateUserResponse](
+			httpClient,
+			baseURL+HubServiceCreateUserProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("CreateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		updateUser: connect.NewClient[v1.UpdateUserRequest, v1.UpdateUserResponse](
+			httpClient,
+			baseURL+HubServiceUpdateUserProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("UpdateUser")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteUser: connect.NewClient[v1.DeleteUserRequest, v1.DeleteUserResponse](
+			httpClient,
+			baseURL+HubServiceDeleteUserProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("DeleteUser")),
+			connect.WithClientOptions(opts...),
+		),
+		setPassword: connect.NewClient[v1.SetPasswordRequest, v1.SetPasswordResponse](
+			httpClient,
+			baseURL+HubServiceSetPasswordProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("SetPassword")),
+			connect.WithClientOptions(opts...),
+		),
+		listGrants: connect.NewClient[v1.ListGrantsRequest, v1.ListGrantsResponse](
+			httpClient,
+			baseURL+HubServiceListGrantsProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("ListGrants")),
+			connect.WithClientOptions(opts...),
+		),
+		setGrant: connect.NewClient[v1.SetGrantRequest, v1.SetGrantResponse](
+			httpClient,
+			baseURL+HubServiceSetGrantProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("SetGrant")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteGrant: connect.NewClient[v1.DeleteGrantRequest, v1.DeleteGrantResponse](
+			httpClient,
+			baseURL+HubServiceDeleteGrantProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("DeleteGrant")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -149,6 +223,14 @@ type hubServiceClient struct {
 	deleteCluster   *connect.Client[v1.DeleteClusterRequest, v1.DeleteClusterResponse]
 	watchClusters   *connect.Client[v1.WatchClustersRequest, v1.ClusterEvent]
 	listAuditEvents *connect.Client[v1.ListAuditEventsRequest, v1.ListAuditEventsResponse]
+	listUsers       *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	createUser      *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	updateUser      *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	deleteUser      *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
+	setPassword     *connect.Client[v1.SetPasswordRequest, v1.SetPasswordResponse]
+	listGrants      *connect.Client[v1.ListGrantsRequest, v1.ListGrantsResponse]
+	setGrant        *connect.Client[v1.SetGrantRequest, v1.SetGrantResponse]
+	deleteGrant     *connect.Client[v1.DeleteGrantRequest, v1.DeleteGrantResponse]
 }
 
 // Login calls kmate.v1.HubService.Login.
@@ -196,6 +278,46 @@ func (c *hubServiceClient) ListAuditEvents(ctx context.Context, req *connect.Req
 	return c.listAuditEvents.CallUnary(ctx, req)
 }
 
+// ListUsers calls kmate.v1.HubService.ListUsers.
+func (c *hubServiceClient) ListUsers(ctx context.Context, req *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return c.listUsers.CallUnary(ctx, req)
+}
+
+// CreateUser calls kmate.v1.HubService.CreateUser.
+func (c *hubServiceClient) CreateUser(ctx context.Context, req *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return c.createUser.CallUnary(ctx, req)
+}
+
+// UpdateUser calls kmate.v1.HubService.UpdateUser.
+func (c *hubServiceClient) UpdateUser(ctx context.Context, req *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return c.updateUser.CallUnary(ctx, req)
+}
+
+// DeleteUser calls kmate.v1.HubService.DeleteUser.
+func (c *hubServiceClient) DeleteUser(ctx context.Context, req *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return c.deleteUser.CallUnary(ctx, req)
+}
+
+// SetPassword calls kmate.v1.HubService.SetPassword.
+func (c *hubServiceClient) SetPassword(ctx context.Context, req *connect.Request[v1.SetPasswordRequest]) (*connect.Response[v1.SetPasswordResponse], error) {
+	return c.setPassword.CallUnary(ctx, req)
+}
+
+// ListGrants calls kmate.v1.HubService.ListGrants.
+func (c *hubServiceClient) ListGrants(ctx context.Context, req *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error) {
+	return c.listGrants.CallUnary(ctx, req)
+}
+
+// SetGrant calls kmate.v1.HubService.SetGrant.
+func (c *hubServiceClient) SetGrant(ctx context.Context, req *connect.Request[v1.SetGrantRequest]) (*connect.Response[v1.SetGrantResponse], error) {
+	return c.setGrant.CallUnary(ctx, req)
+}
+
+// DeleteGrant calls kmate.v1.HubService.DeleteGrant.
+func (c *hubServiceClient) DeleteGrant(ctx context.Context, req *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error) {
+	return c.deleteGrant.CallUnary(ctx, req)
+}
+
 // HubServiceHandler is an implementation of the kmate.v1.HubService service.
 type HubServiceHandler interface {
 	Login(context.Context, *connect.Request[v1.LoginRequest]) (*connect.Response[v1.LoginResponse], error)
@@ -207,6 +329,16 @@ type HubServiceHandler interface {
 	DeleteCluster(context.Context, *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error)
 	WatchClusters(context.Context, *connect.Request[v1.WatchClustersRequest], *connect.ServerStream[v1.ClusterEvent]) error
 	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
+	// User administration (admin only, except SetPassword on yourself).
+	ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error)
+	CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error)
+	UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error)
+	DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error)
+	SetPassword(context.Context, *connect.Request[v1.SetPasswordRequest]) (*connect.Response[v1.SetPasswordResponse], error)
+	// Per-cluster access grants (admin only, except ListGrants for yourself).
+	ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error)
+	SetGrant(context.Context, *connect.Request[v1.SetGrantRequest]) (*connect.Response[v1.SetGrantResponse], error)
+	DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error)
 }
 
 // NewHubServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -270,6 +402,54 @@ func NewHubServiceHandler(svc HubServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(hubServiceMethods.ByName("ListAuditEvents")),
 		connect.WithHandlerOptions(opts...),
 	)
+	hubServiceListUsersHandler := connect.NewUnaryHandler(
+		HubServiceListUsersProcedure,
+		svc.ListUsers,
+		connect.WithSchema(hubServiceMethods.ByName("ListUsers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceCreateUserHandler := connect.NewUnaryHandler(
+		HubServiceCreateUserProcedure,
+		svc.CreateUser,
+		connect.WithSchema(hubServiceMethods.ByName("CreateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceUpdateUserHandler := connect.NewUnaryHandler(
+		HubServiceUpdateUserProcedure,
+		svc.UpdateUser,
+		connect.WithSchema(hubServiceMethods.ByName("UpdateUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceDeleteUserHandler := connect.NewUnaryHandler(
+		HubServiceDeleteUserProcedure,
+		svc.DeleteUser,
+		connect.WithSchema(hubServiceMethods.ByName("DeleteUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceSetPasswordHandler := connect.NewUnaryHandler(
+		HubServiceSetPasswordProcedure,
+		svc.SetPassword,
+		connect.WithSchema(hubServiceMethods.ByName("SetPassword")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceListGrantsHandler := connect.NewUnaryHandler(
+		HubServiceListGrantsProcedure,
+		svc.ListGrants,
+		connect.WithSchema(hubServiceMethods.ByName("ListGrants")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceSetGrantHandler := connect.NewUnaryHandler(
+		HubServiceSetGrantProcedure,
+		svc.SetGrant,
+		connect.WithSchema(hubServiceMethods.ByName("SetGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceDeleteGrantHandler := connect.NewUnaryHandler(
+		HubServiceDeleteGrantProcedure,
+		svc.DeleteGrant,
+		connect.WithSchema(hubServiceMethods.ByName("DeleteGrant")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/kmate.v1.HubService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case HubServiceLoginProcedure:
@@ -290,6 +470,22 @@ func NewHubServiceHandler(svc HubServiceHandler, opts ...connect.HandlerOption) 
 			hubServiceWatchClustersHandler.ServeHTTP(w, r)
 		case HubServiceListAuditEventsProcedure:
 			hubServiceListAuditEventsHandler.ServeHTTP(w, r)
+		case HubServiceListUsersProcedure:
+			hubServiceListUsersHandler.ServeHTTP(w, r)
+		case HubServiceCreateUserProcedure:
+			hubServiceCreateUserHandler.ServeHTTP(w, r)
+		case HubServiceUpdateUserProcedure:
+			hubServiceUpdateUserHandler.ServeHTTP(w, r)
+		case HubServiceDeleteUserProcedure:
+			hubServiceDeleteUserHandler.ServeHTTP(w, r)
+		case HubServiceSetPasswordProcedure:
+			hubServiceSetPasswordHandler.ServeHTTP(w, r)
+		case HubServiceListGrantsProcedure:
+			hubServiceListGrantsHandler.ServeHTTP(w, r)
+		case HubServiceSetGrantProcedure:
+			hubServiceSetGrantHandler.ServeHTTP(w, r)
+		case HubServiceDeleteGrantProcedure:
+			hubServiceDeleteGrantHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -333,4 +529,36 @@ func (UnimplementedHubServiceHandler) WatchClusters(context.Context, *connect.Re
 
 func (UnimplementedHubServiceHandler) ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.ListAuditEvents is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) ListUsers(context.Context, *connect.Request[v1.ListUsersRequest]) (*connect.Response[v1.ListUsersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.ListUsers is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) CreateUser(context.Context, *connect.Request[v1.CreateUserRequest]) (*connect.Response[v1.CreateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.CreateUser is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) UpdateUser(context.Context, *connect.Request[v1.UpdateUserRequest]) (*connect.Response[v1.UpdateUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.UpdateUser is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) DeleteUser(context.Context, *connect.Request[v1.DeleteUserRequest]) (*connect.Response[v1.DeleteUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.DeleteUser is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) SetPassword(context.Context, *connect.Request[v1.SetPasswordRequest]) (*connect.Response[v1.SetPasswordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.SetPassword is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) ListGrants(context.Context, *connect.Request[v1.ListGrantsRequest]) (*connect.Response[v1.ListGrantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.ListGrants is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) SetGrant(context.Context, *connect.Request[v1.SetGrantRequest]) (*connect.Response[v1.SetGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.SetGrant is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) DeleteGrant(context.Context, *connect.Request[v1.DeleteGrantRequest]) (*connect.Response[v1.DeleteGrantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.DeleteGrant is not implemented"))
 }

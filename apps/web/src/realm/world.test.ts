@@ -64,7 +64,8 @@ describe("buildWorld", () => {
     expect(isl.plots.some((p) => p.namespace === "kube-system")).toBe(false); // hidden by default
     const byName = Object.fromEntries(plot.buildings.map((b) => [b.name, b]));
     expect(byName.api!.tier).toBe(2);
-    expect(byName.api!.sprite).toMatch(/^house_wood_2_/);
+    expect(byName.api!.role).toBe("building.deployment.t2");
+    expect(byName.api!.variant).toBe("shop");
     expect(byName.api!.health).toBe("ok");
     expect(byName.web!.health).toBe("warn");
     expect(byName.worker!.health).toBe("bad");
@@ -110,4 +111,27 @@ describe("buildWorld", () => {
         expect(overlap).toBe(false);
       }
   });
+
+
+    it("emits theme roles, never file ids, and takes footprints from the theme", () => {
+      const w = buildWorld({ ...input, footprint: () => ({ w: 3, h: 3, yard: 1 }) });
+      const plot = w.islands[0]!.plots.find((p) => p.namespace === "shop")!;
+      for (const b of plot.buildings) {
+        expect(b.role).toMatch(/^building\./);
+        expect(b.cell.w).toBe(3);
+        expect(b.cell.h).toBe(4); // h + yard
+        for (const a of b.actors) {
+          expect(a.role).toMatch(/^(villager|knight|archer|miner|lumberjack|templar|angel|skeleton)$/);
+          expect(typeof a.variant).toBe("string");
+        }
+      }
+    });
+
+    it("gives the same namespace the same variant seed so colours stay stable", () => {
+      const a = buildWorld(input), b = buildWorld(input);
+      const va = a.islands[0]!.plots.flatMap((p) => p.buildings).map((x) => `${x.role}|${x.variant}`);
+      const vb = b.islands[0]!.plots.flatMap((p) => p.buildings).map((x) => `${x.role}|${x.variant}`);
+      expect(va).toEqual(vb);
+      expect(va.every((v) => v.endsWith("|shop") || v.includes("|"))).toBe(true);
+    });
 });

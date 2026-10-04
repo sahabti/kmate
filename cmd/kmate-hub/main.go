@@ -102,7 +102,16 @@ func bootstrapAdmin(ctx context.Context, st *store.Store, log *slog.Logger) erro
 	if err != nil {
 		return err
 	}
-	if err := st.CreateUser(ctx, &store.User{Email: email, Name: "Admin", PasswordHash: hash, Role: auth.RoleAdmin}); err != nil {
+	u := &store.User{Email: strings.TrimSpace(strings.ToLower(email)), Name: "Admin", PasswordHash: hash, Role: auth.RoleAdmin, Active: true}
+	u.K8sUser = os.Getenv("KMATE_ADMIN_K8S_USER")
+	if g := os.Getenv("KMATE_ADMIN_K8S_GROUPS"); g != "" {
+		for _, part := range strings.Split(g, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				u.K8sGroups = append(u.K8sGroups, part)
+			}
+		}
+	}
+	if err := st.CreateUser(ctx, u); err != nil {
 		return errors.New("bootstrap admin: " + err.Error())
 	}
 	log.Info("bootstrapped admin user", "email", email)

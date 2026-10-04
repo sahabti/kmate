@@ -90,15 +90,37 @@ client gets the latest state, never a backlog).
 | `KMATE_AGENT_ADDR` | advertised agent endpoint `kmate.example.com:9090` |
 | `KMATE_TLS_CERT/KEY` | optional; else `KMATE_INSECURE=true` for dev |
 | `KMATE_OIDC_*` | issuer, client id/secret |
-| `KMATE_ADMIN_EMAIL/PASSWORD` | bootstrap admin (dev) |
+| `KMATE_ADMIN_EMAIL/PASSWORD` | bootstrap admin, created only when no users exist |
+| `KMATE_ADMIN_K8S_USER` | optional Kubernetes username for the bootstrap admin (default: the email) |
+| `KMATE_ADMIN_K8S_GROUPS` | optional comma-separated impersonation groups for the bootstrap admin |
 
 ## API surface (client-facing, Connect)
 
-- `HubService`: `Login`, `Me`, `ListClusters`, `CreateCluster` (returns enrollment
-  token + `helm install` command), `DeleteCluster`, `ListAuditEvents`.
+- `HubService`: `Login`, `Logout`, `Me`, `ListClusters`, `GetCluster`, `CreateCluster`
+  (returns enrollment token + `helm install` command), `DeleteCluster`,
+  `WatchClusters`, `ListAuditEvents`.
+- `HubService`, user administration (**global admin only**): `ListUsers`, `CreateUser`,
+  `UpdateUser`, `DeleteUser`, `SetPassword` (an admin sets anyone's; you set your own
+  by supplying the current one).
+- `HubService`, access grants (**global admin only**, except `ListGrants` for yourself):
+  `ListGrants`, `SetGrant`, `DeleteGrant`.
 - `ClusterService` (all take `cluster_id`): `Discover` (API groups/resources),
   `List`, `Get`, `Watch` (server stream), `Apply`, `Patch`, `Delete`, `Scale`,
-  `RolloutRestart`, `Logs` (server stream), `GetCatalog`, `WatchCatalog`, `ListHelmReleases`, `GetMetrics`.
+  `RolloutRestart`, `Logs` (server stream), `GetCatalog`, `WatchCatalog`,
+  `ListHelmReleases`, `GetHelmRelease`, `GetMetrics`, `AccessReview`.
+
+### Authorization
+
+Every cluster-touching call passes through one check: the caller must hold a grant on
+the cluster, the grant's role must allow the verb, and every namespace in the request
+must be inside the grant. The same check guards the WebSocket routes and the `/pf/`
+proxy, which bypass Connect interceptors. Denials are audit-logged.
+
+Roles and grants are re-read from the database per request rather than carried in the
+JWT, so revocation and deactivation apply at once. `AccessReview` asks the cluster what
+the impersonated user may actually do, so the UI can hide actions the API server would
+refuse. See [06-security.md](06-security.md) for the full model and the enforcement
+matrix; OIDC will populate the Kubernetes identity fields in a later phase.
 - WebSocket: `/ws/clusters/{id}/exec`, `/ws/clusters/{id}/portforward`, `/ws/clusters/{id}/watch`.
 
 ### Multiplexed watches: `GET /ws/clusters/{id}/watch`

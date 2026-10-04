@@ -78,6 +78,10 @@ func (h *Handler) Dispatch(ctx context.Context, st *mux.Stream, req *kmatev1.Req
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.helmList(ctx, req, k.HelmList) })
 	case *kmatev1.Request_HelmGet:
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.helmGet(ctx, req, k.HelmGet) })
+	case *kmatev1.Request_AccessReview:
+		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) {
+			return h.accessReview(ctx, req, k.AccessReview)
+		})
 	case *kmatev1.Request_Metrics:
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.metrics(ctx, req, k.Metrics) })
 	case *kmatev1.Request_ClusterInfo:

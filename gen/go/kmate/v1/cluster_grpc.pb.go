@@ -34,6 +34,7 @@ const (
 	ClusterService_ListHelmReleases_FullMethodName = "/kmate.v1.ClusterService/ListHelmReleases"
 	ClusterService_GetHelmRelease_FullMethodName   = "/kmate.v1.ClusterService/GetHelmRelease"
 	ClusterService_GetMetrics_FullMethodName       = "/kmate.v1.ClusterService/GetMetrics"
+	ClusterService_AccessReview_FullMethodName     = "/kmate.v1.ClusterService/AccessReview"
 )
 
 // ClusterServiceClient is the client API for ClusterService service.
@@ -58,6 +59,7 @@ type ClusterServiceClient interface {
 	ListHelmReleases(ctx context.Context, in *ClusterHelmListRequest, opts ...grpc.CallOption) (*HelmListResponse, error)
 	GetHelmRelease(ctx context.Context, in *ClusterHelmGetRequest, opts ...grpc.CallOption) (*HelmGetResponse, error)
 	GetMetrics(ctx context.Context, in *ClusterMetricsRequest, opts ...grpc.CallOption) (*MetricsResponse, error)
+	AccessReview(ctx context.Context, in *ClusterAccessReviewRequest, opts ...grpc.CallOption) (*AccessReviewResponse, error)
 }
 
 type clusterServiceClient struct {
@@ -245,6 +247,16 @@ func (c *clusterServiceClient) GetMetrics(ctx context.Context, in *ClusterMetric
 	return out, nil
 }
 
+func (c *clusterServiceClient) AccessReview(ctx context.Context, in *ClusterAccessReviewRequest, opts ...grpc.CallOption) (*AccessReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AccessReviewResponse)
+	err := c.cc.Invoke(ctx, ClusterService_AccessReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClusterServiceServer is the server API for ClusterService service.
 // All implementations must embed UnimplementedClusterServiceServer
 // for forward compatibility.
@@ -267,6 +279,7 @@ type ClusterServiceServer interface {
 	ListHelmReleases(context.Context, *ClusterHelmListRequest) (*HelmListResponse, error)
 	GetHelmRelease(context.Context, *ClusterHelmGetRequest) (*HelmGetResponse, error)
 	GetMetrics(context.Context, *ClusterMetricsRequest) (*MetricsResponse, error)
+	AccessReview(context.Context, *ClusterAccessReviewRequest) (*AccessReviewResponse, error)
 	mustEmbedUnimplementedClusterServiceServer()
 }
 
@@ -321,6 +334,9 @@ func (UnimplementedClusterServiceServer) GetHelmRelease(context.Context, *Cluste
 }
 func (UnimplementedClusterServiceServer) GetMetrics(context.Context, *ClusterMetricsRequest) (*MetricsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMetrics not implemented")
+}
+func (UnimplementedClusterServiceServer) AccessReview(context.Context, *ClusterAccessReviewRequest) (*AccessReviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AccessReview not implemented")
 }
 func (UnimplementedClusterServiceServer) mustEmbedUnimplementedClusterServiceServer() {}
 func (UnimplementedClusterServiceServer) testEmbeddedByValue()                        {}
@@ -592,6 +608,24 @@ func _ClusterService_GetMetrics_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClusterService_AccessReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterAccessReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClusterServiceServer).AccessReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClusterService_AccessReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClusterServiceServer).AccessReview(ctx, req.(*ClusterAccessReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClusterService_ServiceDesc is the grpc.ServiceDesc for ClusterService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -646,6 +680,10 @@ var ClusterService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMetrics",
 			Handler:    _ClusterService_GetMetrics_Handler,
+		},
+		{
+			MethodName: "AccessReview",
+			Handler:    _ClusterService_AccessReview_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -69,6 +69,9 @@ const (
 	// ClusterServiceGetMetricsProcedure is the fully-qualified name of the ClusterService's GetMetrics
 	// RPC.
 	ClusterServiceGetMetricsProcedure = "/kmate.v1.ClusterService/GetMetrics"
+	// ClusterServiceAccessReviewProcedure is the fully-qualified name of the ClusterService's
+	// AccessReview RPC.
+	ClusterServiceAccessReviewProcedure = "/kmate.v1.ClusterService/AccessReview"
 )
 
 // ClusterServiceClient is a client for the kmate.v1.ClusterService service.
@@ -88,6 +91,7 @@ type ClusterServiceClient interface {
 	ListHelmReleases(context.Context, *connect.Request[v1.ClusterHelmListRequest]) (*connect.Response[v1.HelmListResponse], error)
 	GetHelmRelease(context.Context, *connect.Request[v1.ClusterHelmGetRequest]) (*connect.Response[v1.HelmGetResponse], error)
 	GetMetrics(context.Context, *connect.Request[v1.ClusterMetricsRequest]) (*connect.Response[v1.MetricsResponse], error)
+	AccessReview(context.Context, *connect.Request[v1.ClusterAccessReviewRequest]) (*connect.Response[v1.AccessReviewResponse], error)
 }
 
 // NewClusterServiceClient constructs a client for the kmate.v1.ClusterService service. By default,
@@ -191,6 +195,12 @@ func NewClusterServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(clusterServiceMethods.ByName("GetMetrics")),
 			connect.WithClientOptions(opts...),
 		),
+		accessReview: connect.NewClient[v1.ClusterAccessReviewRequest, v1.AccessReviewResponse](
+			httpClient,
+			baseURL+ClusterServiceAccessReviewProcedure,
+			connect.WithSchema(clusterServiceMethods.ByName("AccessReview")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -211,6 +221,7 @@ type clusterServiceClient struct {
 	listHelmReleases *connect.Client[v1.ClusterHelmListRequest, v1.HelmListResponse]
 	getHelmRelease   *connect.Client[v1.ClusterHelmGetRequest, v1.HelmGetResponse]
 	getMetrics       *connect.Client[v1.ClusterMetricsRequest, v1.MetricsResponse]
+	accessReview     *connect.Client[v1.ClusterAccessReviewRequest, v1.AccessReviewResponse]
 }
 
 // Discover calls kmate.v1.ClusterService.Discover.
@@ -288,6 +299,11 @@ func (c *clusterServiceClient) GetMetrics(ctx context.Context, req *connect.Requ
 	return c.getMetrics.CallUnary(ctx, req)
 }
 
+// AccessReview calls kmate.v1.ClusterService.AccessReview.
+func (c *clusterServiceClient) AccessReview(ctx context.Context, req *connect.Request[v1.ClusterAccessReviewRequest]) (*connect.Response[v1.AccessReviewResponse], error) {
+	return c.accessReview.CallUnary(ctx, req)
+}
+
 // ClusterServiceHandler is an implementation of the kmate.v1.ClusterService service.
 type ClusterServiceHandler interface {
 	Discover(context.Context, *connect.Request[v1.ClusterDiscoverRequest]) (*connect.Response[v1.DiscoverResponse], error)
@@ -305,6 +321,7 @@ type ClusterServiceHandler interface {
 	ListHelmReleases(context.Context, *connect.Request[v1.ClusterHelmListRequest]) (*connect.Response[v1.HelmListResponse], error)
 	GetHelmRelease(context.Context, *connect.Request[v1.ClusterHelmGetRequest]) (*connect.Response[v1.HelmGetResponse], error)
 	GetMetrics(context.Context, *connect.Request[v1.ClusterMetricsRequest]) (*connect.Response[v1.MetricsResponse], error)
+	AccessReview(context.Context, *connect.Request[v1.ClusterAccessReviewRequest]) (*connect.Response[v1.AccessReviewResponse], error)
 }
 
 // NewClusterServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -404,6 +421,12 @@ func NewClusterServiceHandler(svc ClusterServiceHandler, opts ...connect.Handler
 		connect.WithSchema(clusterServiceMethods.ByName("GetMetrics")),
 		connect.WithHandlerOptions(opts...),
 	)
+	clusterServiceAccessReviewHandler := connect.NewUnaryHandler(
+		ClusterServiceAccessReviewProcedure,
+		svc.AccessReview,
+		connect.WithSchema(clusterServiceMethods.ByName("AccessReview")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/kmate.v1.ClusterService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ClusterServiceDiscoverProcedure:
@@ -436,6 +459,8 @@ func NewClusterServiceHandler(svc ClusterServiceHandler, opts ...connect.Handler
 			clusterServiceGetHelmReleaseHandler.ServeHTTP(w, r)
 		case ClusterServiceGetMetricsProcedure:
 			clusterServiceGetMetricsHandler.ServeHTTP(w, r)
+		case ClusterServiceAccessReviewProcedure:
+			clusterServiceAccessReviewHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -503,4 +528,8 @@ func (UnimplementedClusterServiceHandler) GetHelmRelease(context.Context, *conne
 
 func (UnimplementedClusterServiceHandler) GetMetrics(context.Context, *connect.Request[v1.ClusterMetricsRequest]) (*connect.Response[v1.MetricsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.ClusterService.GetMetrics is not implemented"))
+}
+
+func (UnimplementedClusterServiceHandler) AccessReview(context.Context, *connect.Request[v1.ClusterAccessReviewRequest]) (*connect.Response[v1.AccessReviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.ClusterService.AccessReview is not implemented"))
 }

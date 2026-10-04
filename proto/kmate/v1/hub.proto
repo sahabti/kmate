@@ -18,6 +18,18 @@ service HubService {
   rpc DeleteCluster(DeleteClusterRequest) returns (DeleteClusterResponse);
   rpc WatchClusters(WatchClustersRequest) returns (stream ClusterEvent);
   rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+
+  // User administration (admin only, except SetPassword on yourself).
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc SetPassword(SetPasswordRequest) returns (SetPasswordResponse);
+
+  // Per-cluster access grants (admin only, except ListGrants for yourself).
+  rpc ListGrants(ListGrantsRequest) returns (ListGrantsResponse);
+  rpc SetGrant(SetGrantRequest) returns (SetGrantResponse);
+  rpc DeleteGrant(DeleteGrantRequest) returns (DeleteGrantResponse);
 }
 
 message LoginRequest {
@@ -37,7 +49,84 @@ message User {
   string email = 2;
   string name = 3;
   string role = 4; // admin | operator | viewer
+  // Kubernetes identity used for impersonation. Empty k8s_user means "use email".
+  // OIDC will populate both from token claims in a later phase.
+  string k8s_user = 5;
+  repeated string k8s_groups = 6;
+  bool active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
 }
+
+// ClusterGrant gives one user access to one cluster, optionally limited to
+// namespaces. An empty namespaces list means every namespace.
+message ClusterGrant {
+  string id = 1;
+  string user_id = 2;
+  string cluster_id = 3;
+  string cluster_name = 4;   // read-only convenience
+  string role = 5;           // admin | operator | viewer
+  repeated string namespaces = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListUsersRequest {}
+message ListUsersResponse { repeated User users = 1; }
+
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+  string role = 4;
+  string k8s_user = 5;
+  repeated string k8s_groups = 6;
+}
+message CreateUserResponse { User user = 1; }
+
+// UpdateUser changes the fields whose *_set companion is true.
+message UpdateUserRequest {
+  string id = 1;
+  string name = 2;
+  bool name_set = 3;
+  string role = 4;
+  bool role_set = 5;
+  string k8s_user = 6;
+  bool k8s_user_set = 7;
+  repeated string k8s_groups = 8;
+  bool k8s_groups_set = 9;
+  bool active = 10;
+  bool active_set = 11;
+}
+message UpdateUserResponse { User user = 1; }
+
+message DeleteUserRequest { string id = 1; }
+message DeleteUserResponse {}
+
+// SetPassword: an admin may set anyone's password; a user may set their own by
+// supplying current_password.
+message SetPasswordRequest {
+  string user_id = 1;  // empty = yourself
+  string current_password = 2;
+  string new_password = 3;
+}
+message SetPasswordResponse {}
+
+message ListGrantsRequest { string user_id = 1; } // empty = yourself
+message ListGrantsResponse { repeated ClusterGrant grants = 1; }
+
+message SetGrantRequest {
+  string user_id = 1;
+  string cluster_id = 2;
+  string role = 3;
+  repeated string namespaces = 4;
+}
+message SetGrantResponse { ClusterGrant grant = 1; }
+
+message DeleteGrantRequest {
+  string user_id = 1;
+  string cluster_id = 2;
+}
+message DeleteGrantResponse {}
 
 message MeRequest {}
 message MeResponse { User user = 1; }

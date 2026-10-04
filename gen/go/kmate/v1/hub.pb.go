@@ -251,11 +251,18 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 }
 
 type User struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"` // admin | operator | viewer
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Email string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Name  string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Role  string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"` // admin | operator | viewer
+	// Kubernetes identity used for impersonation. Empty k8s_user means "use email".
+	// OIDC will populate both from token claims in a later phase.
+	K8SUser       string                 `protobuf:"bytes,5,opt,name=k8s_user,json=k8sUser,proto3" json:"k8s_user,omitempty"`
+	K8SGroups     []string               `protobuf:"bytes,6,rep,name=k8s_groups,json=k8sGroups,proto3" json:"k8s_groups,omitempty"`
+	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -318,6 +325,978 @@ func (x *User) GetRole() string {
 	return ""
 }
 
+func (x *User) GetK8SUser() string {
+	if x != nil {
+		return x.K8SUser
+	}
+	return ""
+}
+
+func (x *User) GetK8SGroups() []string {
+	if x != nil {
+		return x.K8SGroups
+	}
+	return nil
+}
+
+func (x *User) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *User) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// ClusterGrant gives one user access to one cluster, optionally limited to
+// namespaces. An empty namespaces list means every namespace.
+type ClusterGrant struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ClusterId     string                 `protobuf:"bytes,3,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
+	ClusterName   string                 `protobuf:"bytes,4,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"` // read-only convenience
+	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`                                  // admin | operator | viewer
+	Namespaces    []string               `protobuf:"bytes,6,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterGrant) Reset() {
+	*x = ClusterGrant{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterGrant) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterGrant) ProtoMessage() {}
+
+func (x *ClusterGrant) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterGrant.ProtoReflect.Descriptor instead.
+func (*ClusterGrant) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ClusterGrant) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ClusterGrant) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ClusterGrant) GetClusterId() string {
+	if x != nil {
+		return x.ClusterId
+	}
+	return ""
+}
+
+func (x *ClusterGrant) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *ClusterGrant) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ClusterGrant) GetNamespaces() []string {
+	if x != nil {
+		return x.Namespaces
+	}
+	return nil
+}
+
+func (x *ClusterGrant) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ListUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersRequest) Reset() {
+	*x = ListUsersRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersRequest) ProtoMessage() {}
+
+func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListUsersRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{6}
+}
+
+type ListUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*User                `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersResponse) Reset() {
+	*x = ListUsersResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersResponse) ProtoMessage() {}
+
+func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListUsersResponse) GetUsers() []*User {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type CreateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Password      string                 `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	K8SUser       string                 `protobuf:"bytes,5,opt,name=k8s_user,json=k8sUser,proto3" json:"k8s_user,omitempty"`
+	K8SGroups     []string               `protobuf:"bytes,6,rep,name=k8s_groups,json=k8sGroups,proto3" json:"k8s_groups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserRequest) Reset() {
+	*x = CreateUserRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserRequest) ProtoMessage() {}
+
+func (x *CreateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserRequest.ProtoReflect.Descriptor instead.
+func (*CreateUserRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CreateUserRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetK8SUser() string {
+	if x != nil {
+		return x.K8SUser
+	}
+	return ""
+}
+
+func (x *CreateUserRequest) GetK8SGroups() []string {
+	if x != nil {
+		return x.K8SGroups
+	}
+	return nil
+}
+
+type CreateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserResponse) Reset() {
+	*x = CreateUserResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserResponse) ProtoMessage() {}
+
+func (x *CreateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserResponse.ProtoReflect.Descriptor instead.
+func (*CreateUserResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CreateUserResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+// UpdateUser changes the fields whose *_set companion is true.
+type UpdateUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	NameSet       bool                   `protobuf:"varint,3,opt,name=name_set,json=nameSet,proto3" json:"name_set,omitempty"`
+	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"`
+	RoleSet       bool                   `protobuf:"varint,5,opt,name=role_set,json=roleSet,proto3" json:"role_set,omitempty"`
+	K8SUser       string                 `protobuf:"bytes,6,opt,name=k8s_user,json=k8sUser,proto3" json:"k8s_user,omitempty"`
+	K8SUserSet    bool                   `protobuf:"varint,7,opt,name=k8s_user_set,json=k8sUserSet,proto3" json:"k8s_user_set,omitempty"`
+	K8SGroups     []string               `protobuf:"bytes,8,rep,name=k8s_groups,json=k8sGroups,proto3" json:"k8s_groups,omitempty"`
+	K8SGroupsSet  bool                   `protobuf:"varint,9,opt,name=k8s_groups_set,json=k8sGroupsSet,proto3" json:"k8s_groups_set,omitempty"`
+	Active        bool                   `protobuf:"varint,10,opt,name=active,proto3" json:"active,omitempty"`
+	ActiveSet     bool                   `protobuf:"varint,11,opt,name=active_set,json=activeSet,proto3" json:"active_set,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserRequest) Reset() {
+	*x = UpdateUserRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserRequest) ProtoMessage() {}
+
+func (x *UpdateUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateUserRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetNameSet() bool {
+	if x != nil {
+		return x.NameSet
+	}
+	return false
+}
+
+func (x *UpdateUserRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetRoleSet() bool {
+	if x != nil {
+		return x.RoleSet
+	}
+	return false
+}
+
+func (x *UpdateUserRequest) GetK8SUser() string {
+	if x != nil {
+		return x.K8SUser
+	}
+	return ""
+}
+
+func (x *UpdateUserRequest) GetK8SUserSet() bool {
+	if x != nil {
+		return x.K8SUserSet
+	}
+	return false
+}
+
+func (x *UpdateUserRequest) GetK8SGroups() []string {
+	if x != nil {
+		return x.K8SGroups
+	}
+	return nil
+}
+
+func (x *UpdateUserRequest) GetK8SGroupsSet() bool {
+	if x != nil {
+		return x.K8SGroupsSet
+	}
+	return false
+}
+
+func (x *UpdateUserRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *UpdateUserRequest) GetActiveSet() bool {
+	if x != nil {
+		return x.ActiveSet
+	}
+	return false
+}
+
+type UpdateUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserResponse) Reset() {
+	*x = UpdateUserResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserResponse) ProtoMessage() {}
+
+func (x *UpdateUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserResponse.ProtoReflect.Descriptor instead.
+func (*UpdateUserResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateUserResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+type DeleteUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteUserRequest) Reset() {
+	*x = DeleteUserRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteUserRequest) ProtoMessage() {}
+
+func (x *DeleteUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteUserRequest.ProtoReflect.Descriptor instead.
+func (*DeleteUserRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DeleteUserRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteUserResponse) Reset() {
+	*x = DeleteUserResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteUserResponse) ProtoMessage() {}
+
+func (x *DeleteUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteUserResponse.ProtoReflect.Descriptor instead.
+func (*DeleteUserResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{13}
+}
+
+// SetPassword: an admin may set anyone's password; a user may set their own by
+// supplying current_password.
+type SetPasswordRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // empty = yourself
+	CurrentPassword string                 `protobuf:"bytes,2,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
+	NewPassword     string                 `protobuf:"bytes,3,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetPasswordRequest) Reset() {
+	*x = SetPasswordRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPasswordRequest) ProtoMessage() {}
+
+func (x *SetPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPasswordRequest.ProtoReflect.Descriptor instead.
+func (*SetPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SetPasswordRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SetPasswordRequest) GetCurrentPassword() string {
+	if x != nil {
+		return x.CurrentPassword
+	}
+	return ""
+}
+
+func (x *SetPasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type SetPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPasswordResponse) Reset() {
+	*x = SetPasswordResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPasswordResponse) ProtoMessage() {}
+
+func (x *SetPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPasswordResponse.ProtoReflect.Descriptor instead.
+func (*SetPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{15}
+}
+
+type ListGrantsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGrantsRequest) Reset() {
+	*x = ListGrantsRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGrantsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGrantsRequest) ProtoMessage() {}
+
+func (x *ListGrantsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGrantsRequest.ProtoReflect.Descriptor instead.
+func (*ListGrantsRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ListGrantsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListGrantsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Grants        []*ClusterGrant        `protobuf:"bytes,1,rep,name=grants,proto3" json:"grants,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGrantsResponse) Reset() {
+	*x = ListGrantsResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGrantsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGrantsResponse) ProtoMessage() {}
+
+func (x *ListGrantsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGrantsResponse.ProtoReflect.Descriptor instead.
+func (*ListGrantsResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListGrantsResponse) GetGrants() []*ClusterGrant {
+	if x != nil {
+		return x.Grants
+	}
+	return nil
+}
+
+type SetGrantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ClusterId     string                 `protobuf:"bytes,2,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
+	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	Namespaces    []string               `protobuf:"bytes,4,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGrantRequest) Reset() {
+	*x = SetGrantRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGrantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGrantRequest) ProtoMessage() {}
+
+func (x *SetGrantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGrantRequest.ProtoReflect.Descriptor instead.
+func (*SetGrantRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *SetGrantRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *SetGrantRequest) GetClusterId() string {
+	if x != nil {
+		return x.ClusterId
+	}
+	return ""
+}
+
+func (x *SetGrantRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *SetGrantRequest) GetNamespaces() []string {
+	if x != nil {
+		return x.Namespaces
+	}
+	return nil
+}
+
+type SetGrantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Grant         *ClusterGrant          `protobuf:"bytes,1,opt,name=grant,proto3" json:"grant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetGrantResponse) Reset() {
+	*x = SetGrantResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetGrantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetGrantResponse) ProtoMessage() {}
+
+func (x *SetGrantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetGrantResponse.ProtoReflect.Descriptor instead.
+func (*SetGrantResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SetGrantResponse) GetGrant() *ClusterGrant {
+	if x != nil {
+		return x.Grant
+	}
+	return nil
+}
+
+type DeleteGrantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ClusterId     string                 `protobuf:"bytes,2,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteGrantRequest) Reset() {
+	*x = DeleteGrantRequest{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteGrantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteGrantRequest) ProtoMessage() {}
+
+func (x *DeleteGrantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteGrantRequest.ProtoReflect.Descriptor instead.
+func (*DeleteGrantRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *DeleteGrantRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *DeleteGrantRequest) GetClusterId() string {
+	if x != nil {
+		return x.ClusterId
+	}
+	return ""
+}
+
+type DeleteGrantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteGrantResponse) Reset() {
+	*x = DeleteGrantResponse{}
+	mi := &file_kmate_v1_hub_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteGrantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteGrantResponse) ProtoMessage() {}
+
+func (x *DeleteGrantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_hub_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteGrantResponse.ProtoReflect.Descriptor instead.
+func (*DeleteGrantResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{21}
+}
+
 type MeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -326,7 +1305,7 @@ type MeRequest struct {
 
 func (x *MeRequest) Reset() {
 	*x = MeRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[5]
+	mi := &file_kmate_v1_hub_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -338,7 +1317,7 @@ func (x *MeRequest) String() string {
 func (*MeRequest) ProtoMessage() {}
 
 func (x *MeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[5]
+	mi := &file_kmate_v1_hub_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -351,7 +1330,7 @@ func (x *MeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeRequest.ProtoReflect.Descriptor instead.
 func (*MeRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{5}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{22}
 }
 
 type MeResponse struct {
@@ -363,7 +1342,7 @@ type MeResponse struct {
 
 func (x *MeResponse) Reset() {
 	*x = MeResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[6]
+	mi := &file_kmate_v1_hub_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -375,7 +1354,7 @@ func (x *MeResponse) String() string {
 func (*MeResponse) ProtoMessage() {}
 
 func (x *MeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[6]
+	mi := &file_kmate_v1_hub_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -388,7 +1367,7 @@ func (x *MeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeResponse.ProtoReflect.Descriptor instead.
 func (*MeResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{6}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MeResponse) GetUser() *User {
@@ -414,7 +1393,7 @@ type Cluster struct {
 
 func (x *Cluster) Reset() {
 	*x = Cluster{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[7]
+	mi := &file_kmate_v1_hub_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +1405,7 @@ func (x *Cluster) String() string {
 func (*Cluster) ProtoMessage() {}
 
 func (x *Cluster) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[7]
+	mi := &file_kmate_v1_hub_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +1418,7 @@ func (x *Cluster) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cluster.ProtoReflect.Descriptor instead.
 func (*Cluster) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{7}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Cluster) GetId() string {
@@ -506,7 +1485,7 @@ type ListClustersRequest struct {
 
 func (x *ListClustersRequest) Reset() {
 	*x = ListClustersRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[8]
+	mi := &file_kmate_v1_hub_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -518,7 +1497,7 @@ func (x *ListClustersRequest) String() string {
 func (*ListClustersRequest) ProtoMessage() {}
 
 func (x *ListClustersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[8]
+	mi := &file_kmate_v1_hub_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -531,7 +1510,7 @@ func (x *ListClustersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClustersRequest.ProtoReflect.Descriptor instead.
 func (*ListClustersRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{8}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{25}
 }
 
 type ListClustersResponse struct {
@@ -543,7 +1522,7 @@ type ListClustersResponse struct {
 
 func (x *ListClustersResponse) Reset() {
 	*x = ListClustersResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[9]
+	mi := &file_kmate_v1_hub_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +1534,7 @@ func (x *ListClustersResponse) String() string {
 func (*ListClustersResponse) ProtoMessage() {}
 
 func (x *ListClustersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[9]
+	mi := &file_kmate_v1_hub_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +1547,7 @@ func (x *ListClustersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListClustersResponse.ProtoReflect.Descriptor instead.
 func (*ListClustersResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{9}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListClustersResponse) GetClusters() []*Cluster {
@@ -587,7 +1566,7 @@ type GetClusterRequest struct {
 
 func (x *GetClusterRequest) Reset() {
 	*x = GetClusterRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[10]
+	mi := &file_kmate_v1_hub_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -599,7 +1578,7 @@ func (x *GetClusterRequest) String() string {
 func (*GetClusterRequest) ProtoMessage() {}
 
 func (x *GetClusterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[10]
+	mi := &file_kmate_v1_hub_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -612,7 +1591,7 @@ func (x *GetClusterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClusterRequest.ProtoReflect.Descriptor instead.
 func (*GetClusterRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{10}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetClusterRequest) GetId() string {
@@ -631,7 +1610,7 @@ type GetClusterResponse struct {
 
 func (x *GetClusterResponse) Reset() {
 	*x = GetClusterResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[11]
+	mi := &file_kmate_v1_hub_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -643,7 +1622,7 @@ func (x *GetClusterResponse) String() string {
 func (*GetClusterResponse) ProtoMessage() {}
 
 func (x *GetClusterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[11]
+	mi := &file_kmate_v1_hub_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -656,7 +1635,7 @@ func (x *GetClusterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetClusterResponse.ProtoReflect.Descriptor instead.
 func (*GetClusterResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{11}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetClusterResponse) GetCluster() *Cluster {
@@ -675,7 +1654,7 @@ type CreateClusterRequest struct {
 
 func (x *CreateClusterRequest) Reset() {
 	*x = CreateClusterRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[12]
+	mi := &file_kmate_v1_hub_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -687,7 +1666,7 @@ func (x *CreateClusterRequest) String() string {
 func (*CreateClusterRequest) ProtoMessage() {}
 
 func (x *CreateClusterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[12]
+	mi := &file_kmate_v1_hub_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -700,7 +1679,7 @@ func (x *CreateClusterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateClusterRequest.ProtoReflect.Descriptor instead.
 func (*CreateClusterRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{12}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CreateClusterRequest) GetName() string {
@@ -722,7 +1701,7 @@ type CreateClusterResponse struct {
 
 func (x *CreateClusterResponse) Reset() {
 	*x = CreateClusterResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[13]
+	mi := &file_kmate_v1_hub_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -734,7 +1713,7 @@ func (x *CreateClusterResponse) String() string {
 func (*CreateClusterResponse) ProtoMessage() {}
 
 func (x *CreateClusterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[13]
+	mi := &file_kmate_v1_hub_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -747,7 +1726,7 @@ func (x *CreateClusterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateClusterResponse.ProtoReflect.Descriptor instead.
 func (*CreateClusterResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{13}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CreateClusterResponse) GetCluster() *Cluster {
@@ -787,7 +1766,7 @@ type DeleteClusterRequest struct {
 
 func (x *DeleteClusterRequest) Reset() {
 	*x = DeleteClusterRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[14]
+	mi := &file_kmate_v1_hub_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +1778,7 @@ func (x *DeleteClusterRequest) String() string {
 func (*DeleteClusterRequest) ProtoMessage() {}
 
 func (x *DeleteClusterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[14]
+	mi := &file_kmate_v1_hub_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +1791,7 @@ func (x *DeleteClusterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteClusterRequest.ProtoReflect.Descriptor instead.
 func (*DeleteClusterRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{14}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeleteClusterRequest) GetId() string {
@@ -830,7 +1809,7 @@ type DeleteClusterResponse struct {
 
 func (x *DeleteClusterResponse) Reset() {
 	*x = DeleteClusterResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[15]
+	mi := &file_kmate_v1_hub_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +1821,7 @@ func (x *DeleteClusterResponse) String() string {
 func (*DeleteClusterResponse) ProtoMessage() {}
 
 func (x *DeleteClusterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[15]
+	mi := &file_kmate_v1_hub_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -855,7 +1834,7 @@ func (x *DeleteClusterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteClusterResponse.ProtoReflect.Descriptor instead.
 func (*DeleteClusterResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{15}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{32}
 }
 
 type WatchClustersRequest struct {
@@ -866,7 +1845,7 @@ type WatchClustersRequest struct {
 
 func (x *WatchClustersRequest) Reset() {
 	*x = WatchClustersRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[16]
+	mi := &file_kmate_v1_hub_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1857,7 @@ func (x *WatchClustersRequest) String() string {
 func (*WatchClustersRequest) ProtoMessage() {}
 
 func (x *WatchClustersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[16]
+	mi := &file_kmate_v1_hub_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +1870,7 @@ func (x *WatchClustersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchClustersRequest.ProtoReflect.Descriptor instead.
 func (*WatchClustersRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{16}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{33}
 }
 
 type ClusterEvent struct {
@@ -904,7 +1883,7 @@ type ClusterEvent struct {
 
 func (x *ClusterEvent) Reset() {
 	*x = ClusterEvent{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[17]
+	mi := &file_kmate_v1_hub_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -916,7 +1895,7 @@ func (x *ClusterEvent) String() string {
 func (*ClusterEvent) ProtoMessage() {}
 
 func (x *ClusterEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[17]
+	mi := &file_kmate_v1_hub_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -929,7 +1908,7 @@ func (x *ClusterEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterEvent.ProtoReflect.Descriptor instead.
 func (*ClusterEvent) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{17}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ClusterEvent) GetType() string {
@@ -961,7 +1940,7 @@ type AuditEvent struct {
 
 func (x *AuditEvent) Reset() {
 	*x = AuditEvent{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[18]
+	mi := &file_kmate_v1_hub_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +1952,7 @@ func (x *AuditEvent) String() string {
 func (*AuditEvent) ProtoMessage() {}
 
 func (x *AuditEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[18]
+	mi := &file_kmate_v1_hub_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +1965,7 @@ func (x *AuditEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditEvent.ProtoReflect.Descriptor instead.
 func (*AuditEvent) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{18}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *AuditEvent) GetId() string {
@@ -1048,7 +2027,7 @@ type ListAuditEventsRequest struct {
 
 func (x *ListAuditEventsRequest) Reset() {
 	*x = ListAuditEventsRequest{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[19]
+	mi := &file_kmate_v1_hub_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1060,7 +2039,7 @@ func (x *ListAuditEventsRequest) String() string {
 func (*ListAuditEventsRequest) ProtoMessage() {}
 
 func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[19]
+	mi := &file_kmate_v1_hub_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1073,7 +2052,7 @@ func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{19}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListAuditEventsRequest) GetClusterId() string {
@@ -1099,7 +2078,7 @@ type ListAuditEventsResponse struct {
 
 func (x *ListAuditEventsResponse) Reset() {
 	*x = ListAuditEventsResponse{}
-	mi := &file_kmate_v1_hub_proto_msgTypes[20]
+	mi := &file_kmate_v1_hub_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1111,7 +2090,7 @@ func (x *ListAuditEventsResponse) String() string {
 func (*ListAuditEventsResponse) ProtoMessage() {}
 
 func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_hub_proto_msgTypes[20]
+	mi := &file_kmate_v1_hub_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1124,7 +2103,7 @@ func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{20}
+	return file_kmate_v1_hub_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListAuditEventsResponse) GetEvents() []*AuditEvent {
@@ -1146,12 +2125,90 @@ const file_kmate_v1_hub_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\"\n" +
 	"\x04user\x18\x02 \x01(\v2\x0e.kmate.v1.UserR\x04user\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse\"T\n" +
+	"\x0eLogoutResponse\"\x9c\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
-	"\x04role\x18\x04 \x01(\tR\x04role\"\v\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x19\n" +
+	"\bk8s_user\x18\x05 \x01(\tR\ak8sUser\x12\x1d\n" +
+	"\n" +
+	"k8s_groups\x18\x06 \x03(\tR\tk8sGroups\x12\x16\n" +
+	"\x06active\x18\a \x01(\bR\x06active\x129\n" +
+	"\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xe8\x01\n" +
+	"\fClusterGrant\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"cluster_id\x18\x03 \x01(\tR\tclusterId\x12!\n" +
+	"\fcluster_name\x18\x04 \x01(\tR\vclusterName\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12\x1e\n" +
+	"\n" +
+	"namespaces\x18\x06 \x03(\tR\n" +
+	"namespaces\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x12\n" +
+	"\x10ListUsersRequest\"9\n" +
+	"\x11ListUsersResponse\x12$\n" +
+	"\x05users\x18\x01 \x03(\v2\x0e.kmate.v1.UserR\x05users\"\xa7\x01\n" +
+	"\x11CreateUserRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x19\n" +
+	"\bk8s_user\x18\x05 \x01(\tR\ak8sUser\x12\x1d\n" +
+	"\n" +
+	"k8s_groups\x18\x06 \x03(\tR\tk8sGroups\"8\n" +
+	"\x12CreateUserResponse\x12\"\n" +
+	"\x04user\x18\x01 \x01(\v2\x0e.kmate.v1.UserR\x04user\"\xba\x02\n" +
+	"\x11UpdateUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
+	"\bname_set\x18\x03 \x01(\bR\anameSet\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x19\n" +
+	"\brole_set\x18\x05 \x01(\bR\aroleSet\x12\x19\n" +
+	"\bk8s_user\x18\x06 \x01(\tR\ak8sUser\x12 \n" +
+	"\fk8s_user_set\x18\a \x01(\bR\n" +
+	"k8sUserSet\x12\x1d\n" +
+	"\n" +
+	"k8s_groups\x18\b \x03(\tR\tk8sGroups\x12$\n" +
+	"\x0ek8s_groups_set\x18\t \x01(\bR\fk8sGroupsSet\x12\x16\n" +
+	"\x06active\x18\n" +
+	" \x01(\bR\x06active\x12\x1d\n" +
+	"\n" +
+	"active_set\x18\v \x01(\bR\tactiveSet\"8\n" +
+	"\x12UpdateUserResponse\x12\"\n" +
+	"\x04user\x18\x01 \x01(\v2\x0e.kmate.v1.UserR\x04user\"#\n" +
+	"\x11DeleteUserRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
+	"\x12DeleteUserResponse\"{\n" +
+	"\x12SetPasswordRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12)\n" +
+	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"\x15\n" +
+	"\x13SetPasswordResponse\",\n" +
+	"\x11ListGrantsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"D\n" +
+	"\x12ListGrantsResponse\x12.\n" +
+	"\x06grants\x18\x01 \x03(\v2\x16.kmate.v1.ClusterGrantR\x06grants\"}\n" +
+	"\x0fSetGrantRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"cluster_id\x18\x02 \x01(\tR\tclusterId\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12\x1e\n" +
+	"\n" +
+	"namespaces\x18\x04 \x03(\tR\n" +
+	"namespaces\"@\n" +
+	"\x10SetGrantResponse\x12,\n" +
+	"\x05grant\x18\x01 \x01(\v2\x16.kmate.v1.ClusterGrantR\x05grant\"L\n" +
+	"\x12DeleteGrantRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"cluster_id\x18\x02 \x01(\tR\tclusterId\"\x15\n" +
+	"\x13DeleteGrantResponse\"\v\n" +
 	"\tMeRequest\"0\n" +
 	"\n" +
 	"MeResponse\x12\"\n" +
@@ -1208,7 +2265,7 @@ const file_kmate_v1_hub_proto_rawDesc = "" +
 	"\x1aCLUSTER_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16CLUSTER_STATUS_PENDING\x10\x01\x12\x19\n" +
 	"\x15CLUSTER_STATUS_ONLINE\x10\x02\x12\x1a\n" +
-	"\x16CLUSTER_STATUS_OFFLINE\x10\x032\x93\x05\n" +
+	"\x16CLUSTER_STATUS_OFFLINE\x10\x032\xd8\t\n" +
 	"\n" +
 	"HubService\x128\n" +
 	"\x05Login\x12\x16.kmate.v1.LoginRequest\x1a\x17.kmate.v1.LoginResponse\x12;\n" +
@@ -1220,7 +2277,19 @@ const file_kmate_v1_hub_proto_rawDesc = "" +
 	"\rCreateCluster\x12\x1e.kmate.v1.CreateClusterRequest\x1a\x1f.kmate.v1.CreateClusterResponse\x12P\n" +
 	"\rDeleteCluster\x12\x1e.kmate.v1.DeleteClusterRequest\x1a\x1f.kmate.v1.DeleteClusterResponse\x12I\n" +
 	"\rWatchClusters\x12\x1e.kmate.v1.WatchClustersRequest\x1a\x16.kmate.v1.ClusterEvent0\x01\x12V\n" +
-	"\x0fListAuditEvents\x12 .kmate.v1.ListAuditEventsRequest\x1a!.kmate.v1.ListAuditEventsResponseB\x8d\x01\n" +
+	"\x0fListAuditEvents\x12 .kmate.v1.ListAuditEventsRequest\x1a!.kmate.v1.ListAuditEventsResponse\x12D\n" +
+	"\tListUsers\x12\x1a.kmate.v1.ListUsersRequest\x1a\x1b.kmate.v1.ListUsersResponse\x12G\n" +
+	"\n" +
+	"CreateUser\x12\x1b.kmate.v1.CreateUserRequest\x1a\x1c.kmate.v1.CreateUserResponse\x12G\n" +
+	"\n" +
+	"UpdateUser\x12\x1b.kmate.v1.UpdateUserRequest\x1a\x1c.kmate.v1.UpdateUserResponse\x12G\n" +
+	"\n" +
+	"DeleteUser\x12\x1b.kmate.v1.DeleteUserRequest\x1a\x1c.kmate.v1.DeleteUserResponse\x12J\n" +
+	"\vSetPassword\x12\x1c.kmate.v1.SetPasswordRequest\x1a\x1d.kmate.v1.SetPasswordResponse\x12G\n" +
+	"\n" +
+	"ListGrants\x12\x1b.kmate.v1.ListGrantsRequest\x1a\x1c.kmate.v1.ListGrantsResponse\x12A\n" +
+	"\bSetGrant\x12\x19.kmate.v1.SetGrantRequest\x1a\x1a.kmate.v1.SetGrantResponse\x12J\n" +
+	"\vDeleteGrant\x12\x1c.kmate.v1.DeleteGrantRequest\x1a\x1d.kmate.v1.DeleteGrantResponseB\x8d\x01\n" +
 	"\fcom.kmate.v1B\bHubProtoP\x01Z2github.com/kmate-dev/kmate/gen/go/kmate/v1;kmatev1\xa2\x02\x03KXX\xaa\x02\bKmate.V1\xca\x02\bKmate\\V1\xe2\x02\x14Kmate\\V1\\GPBMetadata\xea\x02\tKmate::V1b\x06proto3"
 
 var (
@@ -1236,7 +2305,7 @@ func file_kmate_v1_hub_proto_rawDescGZIP() []byte {
 }
 
 var file_kmate_v1_hub_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_kmate_v1_hub_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_kmate_v1_hub_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_kmate_v1_hub_proto_goTypes = []any{
 	(ClusterStatus)(0),              // 0: kmate.v1.ClusterStatus
 	(*LoginRequest)(nil),            // 1: kmate.v1.LoginRequest
@@ -1244,61 +2313,102 @@ var file_kmate_v1_hub_proto_goTypes = []any{
 	(*LogoutRequest)(nil),           // 3: kmate.v1.LogoutRequest
 	(*LogoutResponse)(nil),          // 4: kmate.v1.LogoutResponse
 	(*User)(nil),                    // 5: kmate.v1.User
-	(*MeRequest)(nil),               // 6: kmate.v1.MeRequest
-	(*MeResponse)(nil),              // 7: kmate.v1.MeResponse
-	(*Cluster)(nil),                 // 8: kmate.v1.Cluster
-	(*ListClustersRequest)(nil),     // 9: kmate.v1.ListClustersRequest
-	(*ListClustersResponse)(nil),    // 10: kmate.v1.ListClustersResponse
-	(*GetClusterRequest)(nil),       // 11: kmate.v1.GetClusterRequest
-	(*GetClusterResponse)(nil),      // 12: kmate.v1.GetClusterResponse
-	(*CreateClusterRequest)(nil),    // 13: kmate.v1.CreateClusterRequest
-	(*CreateClusterResponse)(nil),   // 14: kmate.v1.CreateClusterResponse
-	(*DeleteClusterRequest)(nil),    // 15: kmate.v1.DeleteClusterRequest
-	(*DeleteClusterResponse)(nil),   // 16: kmate.v1.DeleteClusterResponse
-	(*WatchClustersRequest)(nil),    // 17: kmate.v1.WatchClustersRequest
-	(*ClusterEvent)(nil),            // 18: kmate.v1.ClusterEvent
-	(*AuditEvent)(nil),              // 19: kmate.v1.AuditEvent
-	(*ListAuditEventsRequest)(nil),  // 20: kmate.v1.ListAuditEventsRequest
-	(*ListAuditEventsResponse)(nil), // 21: kmate.v1.ListAuditEventsResponse
-	(*ClusterInfo)(nil),             // 22: kmate.v1.ClusterInfo
-	(*timestamppb.Timestamp)(nil),   // 23: google.protobuf.Timestamp
+	(*ClusterGrant)(nil),            // 6: kmate.v1.ClusterGrant
+	(*ListUsersRequest)(nil),        // 7: kmate.v1.ListUsersRequest
+	(*ListUsersResponse)(nil),       // 8: kmate.v1.ListUsersResponse
+	(*CreateUserRequest)(nil),       // 9: kmate.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),      // 10: kmate.v1.CreateUserResponse
+	(*UpdateUserRequest)(nil),       // 11: kmate.v1.UpdateUserRequest
+	(*UpdateUserResponse)(nil),      // 12: kmate.v1.UpdateUserResponse
+	(*DeleteUserRequest)(nil),       // 13: kmate.v1.DeleteUserRequest
+	(*DeleteUserResponse)(nil),      // 14: kmate.v1.DeleteUserResponse
+	(*SetPasswordRequest)(nil),      // 15: kmate.v1.SetPasswordRequest
+	(*SetPasswordResponse)(nil),     // 16: kmate.v1.SetPasswordResponse
+	(*ListGrantsRequest)(nil),       // 17: kmate.v1.ListGrantsRequest
+	(*ListGrantsResponse)(nil),      // 18: kmate.v1.ListGrantsResponse
+	(*SetGrantRequest)(nil),         // 19: kmate.v1.SetGrantRequest
+	(*SetGrantResponse)(nil),        // 20: kmate.v1.SetGrantResponse
+	(*DeleteGrantRequest)(nil),      // 21: kmate.v1.DeleteGrantRequest
+	(*DeleteGrantResponse)(nil),     // 22: kmate.v1.DeleteGrantResponse
+	(*MeRequest)(nil),               // 23: kmate.v1.MeRequest
+	(*MeResponse)(nil),              // 24: kmate.v1.MeResponse
+	(*Cluster)(nil),                 // 25: kmate.v1.Cluster
+	(*ListClustersRequest)(nil),     // 26: kmate.v1.ListClustersRequest
+	(*ListClustersResponse)(nil),    // 27: kmate.v1.ListClustersResponse
+	(*GetClusterRequest)(nil),       // 28: kmate.v1.GetClusterRequest
+	(*GetClusterResponse)(nil),      // 29: kmate.v1.GetClusterResponse
+	(*CreateClusterRequest)(nil),    // 30: kmate.v1.CreateClusterRequest
+	(*CreateClusterResponse)(nil),   // 31: kmate.v1.CreateClusterResponse
+	(*DeleteClusterRequest)(nil),    // 32: kmate.v1.DeleteClusterRequest
+	(*DeleteClusterResponse)(nil),   // 33: kmate.v1.DeleteClusterResponse
+	(*WatchClustersRequest)(nil),    // 34: kmate.v1.WatchClustersRequest
+	(*ClusterEvent)(nil),            // 35: kmate.v1.ClusterEvent
+	(*AuditEvent)(nil),              // 36: kmate.v1.AuditEvent
+	(*ListAuditEventsRequest)(nil),  // 37: kmate.v1.ListAuditEventsRequest
+	(*ListAuditEventsResponse)(nil), // 38: kmate.v1.ListAuditEventsResponse
+	(*timestamppb.Timestamp)(nil),   // 39: google.protobuf.Timestamp
+	(*ClusterInfo)(nil),             // 40: kmate.v1.ClusterInfo
 }
 var file_kmate_v1_hub_proto_depIdxs = []int32{
 	5,  // 0: kmate.v1.LoginResponse.user:type_name -> kmate.v1.User
-	5,  // 1: kmate.v1.MeResponse.user:type_name -> kmate.v1.User
-	0,  // 2: kmate.v1.Cluster.status:type_name -> kmate.v1.ClusterStatus
-	22, // 3: kmate.v1.Cluster.info:type_name -> kmate.v1.ClusterInfo
-	23, // 4: kmate.v1.Cluster.last_heartbeat:type_name -> google.protobuf.Timestamp
-	23, // 5: kmate.v1.Cluster.created_at:type_name -> google.protobuf.Timestamp
-	8,  // 6: kmate.v1.ListClustersResponse.clusters:type_name -> kmate.v1.Cluster
-	8,  // 7: kmate.v1.GetClusterResponse.cluster:type_name -> kmate.v1.Cluster
-	8,  // 8: kmate.v1.CreateClusterResponse.cluster:type_name -> kmate.v1.Cluster
-	8,  // 9: kmate.v1.ClusterEvent.cluster:type_name -> kmate.v1.Cluster
-	23, // 10: kmate.v1.AuditEvent.time:type_name -> google.protobuf.Timestamp
-	19, // 11: kmate.v1.ListAuditEventsResponse.events:type_name -> kmate.v1.AuditEvent
-	1,  // 12: kmate.v1.HubService.Login:input_type -> kmate.v1.LoginRequest
-	3,  // 13: kmate.v1.HubService.Logout:input_type -> kmate.v1.LogoutRequest
-	6,  // 14: kmate.v1.HubService.Me:input_type -> kmate.v1.MeRequest
-	9,  // 15: kmate.v1.HubService.ListClusters:input_type -> kmate.v1.ListClustersRequest
-	11, // 16: kmate.v1.HubService.GetCluster:input_type -> kmate.v1.GetClusterRequest
-	13, // 17: kmate.v1.HubService.CreateCluster:input_type -> kmate.v1.CreateClusterRequest
-	15, // 18: kmate.v1.HubService.DeleteCluster:input_type -> kmate.v1.DeleteClusterRequest
-	17, // 19: kmate.v1.HubService.WatchClusters:input_type -> kmate.v1.WatchClustersRequest
-	20, // 20: kmate.v1.HubService.ListAuditEvents:input_type -> kmate.v1.ListAuditEventsRequest
-	2,  // 21: kmate.v1.HubService.Login:output_type -> kmate.v1.LoginResponse
-	4,  // 22: kmate.v1.HubService.Logout:output_type -> kmate.v1.LogoutResponse
-	7,  // 23: kmate.v1.HubService.Me:output_type -> kmate.v1.MeResponse
-	10, // 24: kmate.v1.HubService.ListClusters:output_type -> kmate.v1.ListClustersResponse
-	12, // 25: kmate.v1.HubService.GetCluster:output_type -> kmate.v1.GetClusterResponse
-	14, // 26: kmate.v1.HubService.CreateCluster:output_type -> kmate.v1.CreateClusterResponse
-	16, // 27: kmate.v1.HubService.DeleteCluster:output_type -> kmate.v1.DeleteClusterResponse
-	18, // 28: kmate.v1.HubService.WatchClusters:output_type -> kmate.v1.ClusterEvent
-	21, // 29: kmate.v1.HubService.ListAuditEvents:output_type -> kmate.v1.ListAuditEventsResponse
-	21, // [21:30] is the sub-list for method output_type
-	12, // [12:21] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	39, // 1: kmate.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	39, // 2: kmate.v1.User.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 3: kmate.v1.ClusterGrant.created_at:type_name -> google.protobuf.Timestamp
+	5,  // 4: kmate.v1.ListUsersResponse.users:type_name -> kmate.v1.User
+	5,  // 5: kmate.v1.CreateUserResponse.user:type_name -> kmate.v1.User
+	5,  // 6: kmate.v1.UpdateUserResponse.user:type_name -> kmate.v1.User
+	6,  // 7: kmate.v1.ListGrantsResponse.grants:type_name -> kmate.v1.ClusterGrant
+	6,  // 8: kmate.v1.SetGrantResponse.grant:type_name -> kmate.v1.ClusterGrant
+	5,  // 9: kmate.v1.MeResponse.user:type_name -> kmate.v1.User
+	0,  // 10: kmate.v1.Cluster.status:type_name -> kmate.v1.ClusterStatus
+	40, // 11: kmate.v1.Cluster.info:type_name -> kmate.v1.ClusterInfo
+	39, // 12: kmate.v1.Cluster.last_heartbeat:type_name -> google.protobuf.Timestamp
+	39, // 13: kmate.v1.Cluster.created_at:type_name -> google.protobuf.Timestamp
+	25, // 14: kmate.v1.ListClustersResponse.clusters:type_name -> kmate.v1.Cluster
+	25, // 15: kmate.v1.GetClusterResponse.cluster:type_name -> kmate.v1.Cluster
+	25, // 16: kmate.v1.CreateClusterResponse.cluster:type_name -> kmate.v1.Cluster
+	25, // 17: kmate.v1.ClusterEvent.cluster:type_name -> kmate.v1.Cluster
+	39, // 18: kmate.v1.AuditEvent.time:type_name -> google.protobuf.Timestamp
+	36, // 19: kmate.v1.ListAuditEventsResponse.events:type_name -> kmate.v1.AuditEvent
+	1,  // 20: kmate.v1.HubService.Login:input_type -> kmate.v1.LoginRequest
+	3,  // 21: kmate.v1.HubService.Logout:input_type -> kmate.v1.LogoutRequest
+	23, // 22: kmate.v1.HubService.Me:input_type -> kmate.v1.MeRequest
+	26, // 23: kmate.v1.HubService.ListClusters:input_type -> kmate.v1.ListClustersRequest
+	28, // 24: kmate.v1.HubService.GetCluster:input_type -> kmate.v1.GetClusterRequest
+	30, // 25: kmate.v1.HubService.CreateCluster:input_type -> kmate.v1.CreateClusterRequest
+	32, // 26: kmate.v1.HubService.DeleteCluster:input_type -> kmate.v1.DeleteClusterRequest
+	34, // 27: kmate.v1.HubService.WatchClusters:input_type -> kmate.v1.WatchClustersRequest
+	37, // 28: kmate.v1.HubService.ListAuditEvents:input_type -> kmate.v1.ListAuditEventsRequest
+	7,  // 29: kmate.v1.HubService.ListUsers:input_type -> kmate.v1.ListUsersRequest
+	9,  // 30: kmate.v1.HubService.CreateUser:input_type -> kmate.v1.CreateUserRequest
+	11, // 31: kmate.v1.HubService.UpdateUser:input_type -> kmate.v1.UpdateUserRequest
+	13, // 32: kmate.v1.HubService.DeleteUser:input_type -> kmate.v1.DeleteUserRequest
+	15, // 33: kmate.v1.HubService.SetPassword:input_type -> kmate.v1.SetPasswordRequest
+	17, // 34: kmate.v1.HubService.ListGrants:input_type -> kmate.v1.ListGrantsRequest
+	19, // 35: kmate.v1.HubService.SetGrant:input_type -> kmate.v1.SetGrantRequest
+	21, // 36: kmate.v1.HubService.DeleteGrant:input_type -> kmate.v1.DeleteGrantRequest
+	2,  // 37: kmate.v1.HubService.Login:output_type -> kmate.v1.LoginResponse
+	4,  // 38: kmate.v1.HubService.Logout:output_type -> kmate.v1.LogoutResponse
+	24, // 39: kmate.v1.HubService.Me:output_type -> kmate.v1.MeResponse
+	27, // 40: kmate.v1.HubService.ListClusters:output_type -> kmate.v1.ListClustersResponse
+	29, // 41: kmate.v1.HubService.GetCluster:output_type -> kmate.v1.GetClusterResponse
+	31, // 42: kmate.v1.HubService.CreateCluster:output_type -> kmate.v1.CreateClusterResponse
+	33, // 43: kmate.v1.HubService.DeleteCluster:output_type -> kmate.v1.DeleteClusterResponse
+	35, // 44: kmate.v1.HubService.WatchClusters:output_type -> kmate.v1.ClusterEvent
+	38, // 45: kmate.v1.HubService.ListAuditEvents:output_type -> kmate.v1.ListAuditEventsResponse
+	8,  // 46: kmate.v1.HubService.ListUsers:output_type -> kmate.v1.ListUsersResponse
+	10, // 47: kmate.v1.HubService.CreateUser:output_type -> kmate.v1.CreateUserResponse
+	12, // 48: kmate.v1.HubService.UpdateUser:output_type -> kmate.v1.UpdateUserResponse
+	14, // 49: kmate.v1.HubService.DeleteUser:output_type -> kmate.v1.DeleteUserResponse
+	16, // 50: kmate.v1.HubService.SetPassword:output_type -> kmate.v1.SetPasswordResponse
+	18, // 51: kmate.v1.HubService.ListGrants:output_type -> kmate.v1.ListGrantsResponse
+	20, // 52: kmate.v1.HubService.SetGrant:output_type -> kmate.v1.SetGrantResponse
+	22, // 53: kmate.v1.HubService.DeleteGrant:output_type -> kmate.v1.DeleteGrantResponse
+	37, // [37:54] is the sub-list for method output_type
+	20, // [20:37] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_kmate_v1_hub_proto_init() }
@@ -1313,7 +2423,7 @@ func file_kmate_v1_hub_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kmate_v1_hub_proto_rawDesc), len(file_kmate_v1_hub_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   21,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

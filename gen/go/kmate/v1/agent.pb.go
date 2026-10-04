@@ -672,6 +672,7 @@ type Request struct {
 	//	*Request_Metrics
 	//	*Request_ClusterInfo
 	//	*Request_HelmGet
+	//	*Request_AccessReview
 	Kind          isRequest_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -881,6 +882,15 @@ func (x *Request) GetHelmGet() *HelmGetRequest {
 	return nil
 }
 
+func (x *Request) GetAccessReview() *AccessReviewRequest {
+	if x != nil {
+		if x, ok := x.Kind.(*Request_AccessReview); ok {
+			return x.AccessReview
+		}
+	}
+	return nil
+}
+
 type isRequest_Kind interface {
 	isRequest_Kind()
 }
@@ -953,6 +963,10 @@ type Request_HelmGet struct {
 	HelmGet *HelmGetRequest `protobuf:"bytes,26,opt,name=helm_get,json=helmGet,proto3,oneof"`
 }
 
+type Request_AccessReview struct {
+	AccessReview *AccessReviewRequest `protobuf:"bytes,27,opt,name=access_review,json=accessReview,proto3,oneof"`
+}
+
 func (*Request_Discover) isRequest_Kind() {}
 
 func (*Request_List) isRequest_Kind() {}
@@ -987,6 +1001,8 @@ func (*Request_ClusterInfo) isRequest_Kind() {}
 
 func (*Request_HelmGet) isRequest_Kind() {}
 
+func (*Request_AccessReview) isRequest_Kind() {}
+
 type Response struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Error *Error                 `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
@@ -1005,6 +1021,7 @@ type Response struct {
 	//	*Response_Metrics
 	//	*Response_ClusterInfo
 	//	*Response_HelmGet
+	//	*Response_AccessReview
 	Kind          isResponse_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1171,6 +1188,15 @@ func (x *Response) GetHelmGet() *HelmGetResponse {
 	return nil
 }
 
+func (x *Response) GetAccessReview() *AccessReviewResponse {
+	if x != nil {
+		if x, ok := x.Kind.(*Response_AccessReview); ok {
+			return x.AccessReview
+		}
+	}
+	return nil
+}
+
 type isResponse_Kind interface {
 	isResponse_Kind()
 }
@@ -1227,6 +1253,10 @@ type Response_HelmGet struct {
 	HelmGet *HelmGetResponse `protobuf:"bytes,26,opt,name=helm_get,json=helmGet,proto3,oneof"`
 }
 
+type Response_AccessReview struct {
+	AccessReview *AccessReviewResponse `protobuf:"bytes,27,opt,name=access_review,json=accessReview,proto3,oneof"`
+}
+
 func (*Response_Discover) isResponse_Kind() {}
 
 func (*Response_List) isResponse_Kind() {}
@@ -1252,6 +1282,8 @@ func (*Response_Metrics) isResponse_Kind() {}
 func (*Response_ClusterInfo) isResponse_Kind() {}
 
 func (*Response_HelmGet) isResponse_Kind() {}
+
+func (*Response_AccessReview) isResponse_Kind() {}
 
 type DiscoverRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3157,6 +3189,252 @@ func (x *MetricsResponse) GetSamples() []*MetricSample {
 	return nil
 }
 
+// ResourceAttributes mirrors authorization.k8s.io ResourceAttributes: one
+// "can I do <verb> on <resource>" question.
+type ResourceAttributes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Group         string                 `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Resource      string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`
+	Subresource   string                 `protobuf:"bytes,4,opt,name=subresource,proto3" json:"subresource,omitempty"`
+	Namespace     string                 `protobuf:"bytes,5,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Name          string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	Verb          string                 `protobuf:"bytes,7,opt,name=verb,proto3" json:"verb,omitempty"` // get | list | watch | create | update | patch | delete | ...
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResourceAttributes) Reset() {
+	*x = ResourceAttributes{}
+	mi := &file_kmate_v1_agent_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceAttributes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceAttributes) ProtoMessage() {}
+
+func (x *ResourceAttributes) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_agent_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceAttributes.ProtoReflect.Descriptor instead.
+func (*ResourceAttributes) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ResourceAttributes) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetSubresource() string {
+	if x != nil {
+		return x.Subresource
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ResourceAttributes) GetVerb() string {
+	if x != nil {
+		return x.Verb
+	}
+	return ""
+}
+
+type AccessReviewResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allowed       bool                   `protobuf:"varint,1,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	Denied        bool                   `protobuf:"varint,2,opt,name=denied,proto3" json:"denied,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessReviewResult) Reset() {
+	*x = AccessReviewResult{}
+	mi := &file_kmate_v1_agent_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessReviewResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessReviewResult) ProtoMessage() {}
+
+func (x *AccessReviewResult) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_agent_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessReviewResult.ProtoReflect.Descriptor instead.
+func (*AccessReviewResult) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *AccessReviewResult) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
+func (x *AccessReviewResult) GetDenied() bool {
+	if x != nil {
+		return x.Denied
+	}
+	return false
+}
+
+func (x *AccessReviewResult) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// AccessReview asks the API server what the request identity may do. The agent
+// uses SelfSubjectAccessReview with the impersonated client, which is exactly
+// what `kubectl auth can-i` does. Without impersonation the answers describe the
+// agent's own ServiceAccount and carry reason "shared identity".
+type AccessReviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*ResourceAttributes  `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessReviewRequest) Reset() {
+	*x = AccessReviewRequest{}
+	mi := &file_kmate_v1_agent_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessReviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessReviewRequest) ProtoMessage() {}
+
+func (x *AccessReviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_agent_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessReviewRequest.ProtoReflect.Descriptor instead.
+func (*AccessReviewRequest) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *AccessReviewRequest) GetItems() []*ResourceAttributes {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type AccessReviewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*AccessReviewResult  `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessReviewResponse) Reset() {
+	*x = AccessReviewResponse{}
+	mi := &file_kmate_v1_agent_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessReviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessReviewResponse) ProtoMessage() {}
+
+func (x *AccessReviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kmate_v1_agent_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessReviewResponse.ProtoReflect.Descriptor instead.
+func (*AccessReviewResponse) Descriptor() ([]byte, []int) {
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *AccessReviewResponse) GetResults() []*AccessReviewResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
 type ClusterInfoRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -3165,7 +3443,7 @@ type ClusterInfoRequest struct {
 
 func (x *ClusterInfoRequest) Reset() {
 	*x = ClusterInfoRequest{}
-	mi := &file_kmate_v1_agent_proto_msgTypes[43]
+	mi := &file_kmate_v1_agent_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3177,7 +3455,7 @@ func (x *ClusterInfoRequest) String() string {
 func (*ClusterInfoRequest) ProtoMessage() {}
 
 func (x *ClusterInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_agent_proto_msgTypes[43]
+	mi := &file_kmate_v1_agent_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3190,7 +3468,7 @@ func (x *ClusterInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterInfoRequest.ProtoReflect.Descriptor instead.
 func (*ClusterInfoRequest) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{43}
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{47}
 }
 
 type ClusterInfoResponse struct {
@@ -3202,7 +3480,7 @@ type ClusterInfoResponse struct {
 
 func (x *ClusterInfoResponse) Reset() {
 	*x = ClusterInfoResponse{}
-	mi := &file_kmate_v1_agent_proto_msgTypes[44]
+	mi := &file_kmate_v1_agent_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3214,7 +3492,7 @@ func (x *ClusterInfoResponse) String() string {
 func (*ClusterInfoResponse) ProtoMessage() {}
 
 func (x *ClusterInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kmate_v1_agent_proto_msgTypes[44]
+	mi := &file_kmate_v1_agent_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3227,7 +3505,7 @@ func (x *ClusterInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterInfoResponse.ProtoReflect.Descriptor instead.
 func (*ClusterInfoResponse) Descriptor() ([]byte, []int) {
-	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{44}
+	return file_kmate_v1_agent_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ClusterInfoResponse) GetInfo() *ClusterInfo {
@@ -3282,7 +3560,7 @@ const file_kmate_v1_agent_proto_rawDesc = "" +
 	"\fWindowUpdate\x12\x18\n" +
 	"\acredits\x18\x01 \x01(\rR\acredits\".\n" +
 	"\x05Close\x12%\n" +
-	"\x05error\x18\x01 \x01(\v2\x0f.kmate.v1.ErrorR\x05error\"\xec\a\n" +
+	"\x05error\x18\x01 \x01(\v2\x0f.kmate.v1.ErrorR\x05error\"\xb2\b\n" +
 	"\aRequest\x12.\n" +
 	"\bidentity\x18\x01 \x01(\v2\x12.kmate.v1.IdentityR\bidentity\x12\x1d\n" +
 	"\n" +
@@ -3304,8 +3582,9 @@ const file_kmate_v1_agent_proto_rawDesc = "" +
 	"\thelm_list\x18\x17 \x01(\v2\x19.kmate.v1.HelmListRequestH\x00R\bhelmList\x124\n" +
 	"\ametrics\x18\x18 \x01(\v2\x18.kmate.v1.MetricsRequestH\x00R\ametrics\x12A\n" +
 	"\fcluster_info\x18\x19 \x01(\v2\x1c.kmate.v1.ClusterInfoRequestH\x00R\vclusterInfo\x125\n" +
-	"\bhelm_get\x18\x1a \x01(\v2\x18.kmate.v1.HelmGetRequestH\x00R\ahelmGetB\x06\n" +
-	"\x04kind\"\x85\x06\n" +
+	"\bhelm_get\x18\x1a \x01(\v2\x18.kmate.v1.HelmGetRequestH\x00R\ahelmGet\x12D\n" +
+	"\raccess_review\x18\x1b \x01(\v2\x1d.kmate.v1.AccessReviewRequestH\x00R\faccessReviewB\x06\n" +
+	"\x04kind\"\xcc\x06\n" +
 	"\bResponse\x12%\n" +
 	"\x05error\x18\x01 \x01(\v2\x0f.kmate.v1.ErrorR\x05error\x128\n" +
 	"\bdiscover\x18\n" +
@@ -3321,7 +3600,8 @@ const file_kmate_v1_agent_proto_rawDesc = "" +
 	"\thelm_list\x18\x17 \x01(\v2\x1a.kmate.v1.HelmListResponseH\x00R\bhelmList\x125\n" +
 	"\ametrics\x18\x18 \x01(\v2\x19.kmate.v1.MetricsResponseH\x00R\ametrics\x12B\n" +
 	"\fcluster_info\x18\x19 \x01(\v2\x1d.kmate.v1.ClusterInfoResponseH\x00R\vclusterInfo\x126\n" +
-	"\bhelm_get\x18\x1a \x01(\v2\x19.kmate.v1.HelmGetResponseH\x00R\ahelmGetB\x06\n" +
+	"\bhelm_get\x18\x1a \x01(\v2\x19.kmate.v1.HelmGetResponseH\x00R\ahelmGet\x12E\n" +
+	"\raccess_review\x18\x1b \x01(\v2\x1e.kmate.v1.AccessReviewResponseH\x00R\faccessReviewB\x06\n" +
 	"\x04kind\"\x11\n" +
 	"\x0fDiscoverRequest\"G\n" +
 	"\x10DiscoverResponse\x123\n" +
@@ -3449,7 +3729,23 @@ const file_kmate_v1_agent_proto_rawDesc = "" +
 	"\x0ecpu_millicores\x18\x04 \x01(\x03R\rcpuMillicores\x12!\n" +
 	"\fmemory_bytes\x18\x05 \x01(\x03R\vmemoryBytes\"C\n" +
 	"\x0fMetricsResponse\x120\n" +
-	"\asamples\x18\x01 \x03(\v2\x16.kmate.v1.MetricSampleR\asamples\"\x14\n" +
+	"\asamples\x18\x01 \x03(\v2\x16.kmate.v1.MetricSampleR\asamples\"\xc8\x01\n" +
+	"\x12ResourceAttributes\x12\x14\n" +
+	"\x05group\x18\x01 \x01(\tR\x05group\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12 \n" +
+	"\vsubresource\x18\x04 \x01(\tR\vsubresource\x12\x1c\n" +
+	"\tnamespace\x18\x05 \x01(\tR\tnamespace\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n" +
+	"\x04verb\x18\a \x01(\tR\x04verb\"^\n" +
+	"\x12AccessReviewResult\x12\x18\n" +
+	"\aallowed\x18\x01 \x01(\bR\aallowed\x12\x16\n" +
+	"\x06denied\x18\x02 \x01(\bR\x06denied\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"I\n" +
+	"\x13AccessReviewRequest\x122\n" +
+	"\x05items\x18\x01 \x03(\v2\x1c.kmate.v1.ResourceAttributesR\x05items\"N\n" +
+	"\x14AccessReviewResponse\x126\n" +
+	"\aresults\x18\x01 \x03(\v2\x1c.kmate.v1.AccessReviewResultR\aresults\"\x14\n" +
 	"\x12ClusterInfoRequest\"@\n" +
 	"\x13ClusterInfoResponse\x12)\n" +
 	"\x04info\x18\x01 \x01(\v2\x15.kmate.v1.ClusterInfoR\x04info*\x99\x01\n" +
@@ -3479,7 +3775,7 @@ func file_kmate_v1_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_kmate_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_kmate_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_kmate_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_kmate_v1_agent_proto_goTypes = []any{
 	(EventType)(0),                 // 0: kmate.v1.EventType
 	(*EnrollRequest)(nil),          // 1: kmate.v1.EnrollRequest
@@ -3525,20 +3821,24 @@ var file_kmate_v1_agent_proto_goTypes = []any{
 	(*MetricsRequest)(nil),         // 41: kmate.v1.MetricsRequest
 	(*MetricSample)(nil),           // 42: kmate.v1.MetricSample
 	(*MetricsResponse)(nil),        // 43: kmate.v1.MetricsResponse
-	(*ClusterInfoRequest)(nil),     // 44: kmate.v1.ClusterInfoRequest
-	(*ClusterInfoResponse)(nil),    // 45: kmate.v1.ClusterInfoResponse
-	(*ClusterInfo)(nil),            // 46: kmate.v1.ClusterInfo
-	(*Error)(nil),                  // 47: kmate.v1.Error
-	(*Identity)(nil),               // 48: kmate.v1.Identity
-	(*APIResource)(nil),            // 49: kmate.v1.APIResource
-	(*GVR)(nil),                    // 50: kmate.v1.GVR
-	(*ListOptions)(nil),            // 51: kmate.v1.ListOptions
-	(*KubeObject)(nil),             // 52: kmate.v1.KubeObject
-	(*ObjectRef)(nil),              // 53: kmate.v1.ObjectRef
-	(*Catalog)(nil),                // 54: kmate.v1.Catalog
+	(*ResourceAttributes)(nil),     // 44: kmate.v1.ResourceAttributes
+	(*AccessReviewResult)(nil),     // 45: kmate.v1.AccessReviewResult
+	(*AccessReviewRequest)(nil),    // 46: kmate.v1.AccessReviewRequest
+	(*AccessReviewResponse)(nil),   // 47: kmate.v1.AccessReviewResponse
+	(*ClusterInfoRequest)(nil),     // 48: kmate.v1.ClusterInfoRequest
+	(*ClusterInfoResponse)(nil),    // 49: kmate.v1.ClusterInfoResponse
+	(*ClusterInfo)(nil),            // 50: kmate.v1.ClusterInfo
+	(*Error)(nil),                  // 51: kmate.v1.Error
+	(*Identity)(nil),               // 52: kmate.v1.Identity
+	(*APIResource)(nil),            // 53: kmate.v1.APIResource
+	(*GVR)(nil),                    // 54: kmate.v1.GVR
+	(*ListOptions)(nil),            // 55: kmate.v1.ListOptions
+	(*KubeObject)(nil),             // 56: kmate.v1.KubeObject
+	(*ObjectRef)(nil),              // 57: kmate.v1.ObjectRef
+	(*Catalog)(nil),                // 58: kmate.v1.Catalog
 }
 var file_kmate_v1_agent_proto_depIdxs = []int32{
-	46, // 0: kmate.v1.EnrollRequest.cluster_info:type_name -> kmate.v1.ClusterInfo
+	50, // 0: kmate.v1.EnrollRequest.cluster_info:type_name -> kmate.v1.ClusterInfo
 	4,  // 1: kmate.v1.Frame.hello:type_name -> kmate.v1.Hello
 	5,  // 2: kmate.v1.Frame.heartbeat:type_name -> kmate.v1.Heartbeat
 	6,  // 3: kmate.v1.Frame.window_update:type_name -> kmate.v1.WindowUpdate
@@ -3549,10 +3849,10 @@ var file_kmate_v1_agent_proto_depIdxs = []int32{
 	31, // 8: kmate.v1.Frame.data:type_name -> kmate.v1.Data
 	32, // 9: kmate.v1.Frame.resize:type_name -> kmate.v1.Resize
 	35, // 10: kmate.v1.Frame.catalog:type_name -> kmate.v1.CatalogSnapshot
-	46, // 11: kmate.v1.Hello.cluster_info:type_name -> kmate.v1.ClusterInfo
-	46, // 12: kmate.v1.Heartbeat.cluster_info:type_name -> kmate.v1.ClusterInfo
-	47, // 13: kmate.v1.Close.error:type_name -> kmate.v1.Error
-	48, // 14: kmate.v1.Request.identity:type_name -> kmate.v1.Identity
+	50, // 11: kmate.v1.Hello.cluster_info:type_name -> kmate.v1.ClusterInfo
+	50, // 12: kmate.v1.Heartbeat.cluster_info:type_name -> kmate.v1.ClusterInfo
+	51, // 13: kmate.v1.Close.error:type_name -> kmate.v1.Error
+	52, // 14: kmate.v1.Request.identity:type_name -> kmate.v1.Identity
 	10, // 15: kmate.v1.Request.discover:type_name -> kmate.v1.DiscoverRequest
 	12, // 16: kmate.v1.Request.list:type_name -> kmate.v1.ListRequest
 	14, // 17: kmate.v1.Request.get:type_name -> kmate.v1.GetRequest
@@ -3568,56 +3868,60 @@ var file_kmate_v1_agent_proto_depIdxs = []int32{
 	33, // 27: kmate.v1.Request.catalog:type_name -> kmate.v1.CatalogRequest
 	36, // 28: kmate.v1.Request.helm_list:type_name -> kmate.v1.HelmListRequest
 	41, // 29: kmate.v1.Request.metrics:type_name -> kmate.v1.MetricsRequest
-	44, // 30: kmate.v1.Request.cluster_info:type_name -> kmate.v1.ClusterInfoRequest
+	48, // 30: kmate.v1.Request.cluster_info:type_name -> kmate.v1.ClusterInfoRequest
 	39, // 31: kmate.v1.Request.helm_get:type_name -> kmate.v1.HelmGetRequest
-	47, // 32: kmate.v1.Response.error:type_name -> kmate.v1.Error
-	11, // 33: kmate.v1.Response.discover:type_name -> kmate.v1.DiscoverResponse
-	13, // 34: kmate.v1.Response.list:type_name -> kmate.v1.ListResponse
-	15, // 35: kmate.v1.Response.get:type_name -> kmate.v1.GetResponse
-	19, // 36: kmate.v1.Response.apply:type_name -> kmate.v1.ApplyResponse
-	21, // 37: kmate.v1.Response.patch:type_name -> kmate.v1.PatchResponse
-	23, // 38: kmate.v1.Response.delete:type_name -> kmate.v1.DeleteResponse
-	25, // 39: kmate.v1.Response.scale:type_name -> kmate.v1.ScaleResponse
-	27, // 40: kmate.v1.Response.rollout_restart:type_name -> kmate.v1.RolloutRestartResponse
-	34, // 41: kmate.v1.Response.catalog:type_name -> kmate.v1.CatalogResponse
-	38, // 42: kmate.v1.Response.helm_list:type_name -> kmate.v1.HelmListResponse
-	43, // 43: kmate.v1.Response.metrics:type_name -> kmate.v1.MetricsResponse
-	45, // 44: kmate.v1.Response.cluster_info:type_name -> kmate.v1.ClusterInfoResponse
-	40, // 45: kmate.v1.Response.helm_get:type_name -> kmate.v1.HelmGetResponse
-	49, // 46: kmate.v1.DiscoverResponse.resources:type_name -> kmate.v1.APIResource
-	50, // 47: kmate.v1.ListRequest.gvr:type_name -> kmate.v1.GVR
-	51, // 48: kmate.v1.ListRequest.options:type_name -> kmate.v1.ListOptions
-	52, // 49: kmate.v1.ListResponse.items:type_name -> kmate.v1.KubeObject
-	53, // 50: kmate.v1.GetRequest.ref:type_name -> kmate.v1.ObjectRef
-	52, // 51: kmate.v1.GetResponse.object:type_name -> kmate.v1.KubeObject
-	50, // 52: kmate.v1.WatchRequest.gvr:type_name -> kmate.v1.GVR
-	51, // 53: kmate.v1.WatchRequest.options:type_name -> kmate.v1.ListOptions
-	0,  // 54: kmate.v1.WatchEvent.type:type_name -> kmate.v1.EventType
-	52, // 55: kmate.v1.WatchEvent.object:type_name -> kmate.v1.KubeObject
-	47, // 56: kmate.v1.WatchEvent.error:type_name -> kmate.v1.Error
-	52, // 57: kmate.v1.ApplyRequest.object:type_name -> kmate.v1.KubeObject
-	52, // 58: kmate.v1.ApplyResponse.object:type_name -> kmate.v1.KubeObject
-	53, // 59: kmate.v1.PatchRequest.ref:type_name -> kmate.v1.ObjectRef
-	52, // 60: kmate.v1.PatchResponse.object:type_name -> kmate.v1.KubeObject
-	53, // 61: kmate.v1.DeleteRequest.ref:type_name -> kmate.v1.ObjectRef
-	53, // 62: kmate.v1.ScaleRequest.ref:type_name -> kmate.v1.ObjectRef
-	53, // 63: kmate.v1.RolloutRestartRequest.ref:type_name -> kmate.v1.ObjectRef
-	54, // 64: kmate.v1.CatalogResponse.catalog:type_name -> kmate.v1.Catalog
-	54, // 65: kmate.v1.CatalogSnapshot.catalog:type_name -> kmate.v1.Catalog
-	37, // 66: kmate.v1.HelmListResponse.releases:type_name -> kmate.v1.HelmRelease
-	37, // 67: kmate.v1.HelmGetResponse.release:type_name -> kmate.v1.HelmRelease
-	37, // 68: kmate.v1.HelmGetResponse.history:type_name -> kmate.v1.HelmRelease
-	42, // 69: kmate.v1.MetricsResponse.samples:type_name -> kmate.v1.MetricSample
-	46, // 70: kmate.v1.ClusterInfoResponse.info:type_name -> kmate.v1.ClusterInfo
-	1,  // 71: kmate.v1.AgentService.Enroll:input_type -> kmate.v1.EnrollRequest
-	3,  // 72: kmate.v1.AgentService.Tunnel:input_type -> kmate.v1.Frame
-	2,  // 73: kmate.v1.AgentService.Enroll:output_type -> kmate.v1.EnrollResponse
-	3,  // 74: kmate.v1.AgentService.Tunnel:output_type -> kmate.v1.Frame
-	73, // [73:75] is the sub-list for method output_type
-	71, // [71:73] is the sub-list for method input_type
-	71, // [71:71] is the sub-list for extension type_name
-	71, // [71:71] is the sub-list for extension extendee
-	0,  // [0:71] is the sub-list for field type_name
+	46, // 32: kmate.v1.Request.access_review:type_name -> kmate.v1.AccessReviewRequest
+	51, // 33: kmate.v1.Response.error:type_name -> kmate.v1.Error
+	11, // 34: kmate.v1.Response.discover:type_name -> kmate.v1.DiscoverResponse
+	13, // 35: kmate.v1.Response.list:type_name -> kmate.v1.ListResponse
+	15, // 36: kmate.v1.Response.get:type_name -> kmate.v1.GetResponse
+	19, // 37: kmate.v1.Response.apply:type_name -> kmate.v1.ApplyResponse
+	21, // 38: kmate.v1.Response.patch:type_name -> kmate.v1.PatchResponse
+	23, // 39: kmate.v1.Response.delete:type_name -> kmate.v1.DeleteResponse
+	25, // 40: kmate.v1.Response.scale:type_name -> kmate.v1.ScaleResponse
+	27, // 41: kmate.v1.Response.rollout_restart:type_name -> kmate.v1.RolloutRestartResponse
+	34, // 42: kmate.v1.Response.catalog:type_name -> kmate.v1.CatalogResponse
+	38, // 43: kmate.v1.Response.helm_list:type_name -> kmate.v1.HelmListResponse
+	43, // 44: kmate.v1.Response.metrics:type_name -> kmate.v1.MetricsResponse
+	49, // 45: kmate.v1.Response.cluster_info:type_name -> kmate.v1.ClusterInfoResponse
+	40, // 46: kmate.v1.Response.helm_get:type_name -> kmate.v1.HelmGetResponse
+	47, // 47: kmate.v1.Response.access_review:type_name -> kmate.v1.AccessReviewResponse
+	53, // 48: kmate.v1.DiscoverResponse.resources:type_name -> kmate.v1.APIResource
+	54, // 49: kmate.v1.ListRequest.gvr:type_name -> kmate.v1.GVR
+	55, // 50: kmate.v1.ListRequest.options:type_name -> kmate.v1.ListOptions
+	56, // 51: kmate.v1.ListResponse.items:type_name -> kmate.v1.KubeObject
+	57, // 52: kmate.v1.GetRequest.ref:type_name -> kmate.v1.ObjectRef
+	56, // 53: kmate.v1.GetResponse.object:type_name -> kmate.v1.KubeObject
+	54, // 54: kmate.v1.WatchRequest.gvr:type_name -> kmate.v1.GVR
+	55, // 55: kmate.v1.WatchRequest.options:type_name -> kmate.v1.ListOptions
+	0,  // 56: kmate.v1.WatchEvent.type:type_name -> kmate.v1.EventType
+	56, // 57: kmate.v1.WatchEvent.object:type_name -> kmate.v1.KubeObject
+	51, // 58: kmate.v1.WatchEvent.error:type_name -> kmate.v1.Error
+	56, // 59: kmate.v1.ApplyRequest.object:type_name -> kmate.v1.KubeObject
+	56, // 60: kmate.v1.ApplyResponse.object:type_name -> kmate.v1.KubeObject
+	57, // 61: kmate.v1.PatchRequest.ref:type_name -> kmate.v1.ObjectRef
+	56, // 62: kmate.v1.PatchResponse.object:type_name -> kmate.v1.KubeObject
+	57, // 63: kmate.v1.DeleteRequest.ref:type_name -> kmate.v1.ObjectRef
+	57, // 64: kmate.v1.ScaleRequest.ref:type_name -> kmate.v1.ObjectRef
+	57, // 65: kmate.v1.RolloutRestartRequest.ref:type_name -> kmate.v1.ObjectRef
+	58, // 66: kmate.v1.CatalogResponse.catalog:type_name -> kmate.v1.Catalog
+	58, // 67: kmate.v1.CatalogSnapshot.catalog:type_name -> kmate.v1.Catalog
+	37, // 68: kmate.v1.HelmListResponse.releases:type_name -> kmate.v1.HelmRelease
+	37, // 69: kmate.v1.HelmGetResponse.release:type_name -> kmate.v1.HelmRelease
+	37, // 70: kmate.v1.HelmGetResponse.history:type_name -> kmate.v1.HelmRelease
+	42, // 71: kmate.v1.MetricsResponse.samples:type_name -> kmate.v1.MetricSample
+	44, // 72: kmate.v1.AccessReviewRequest.items:type_name -> kmate.v1.ResourceAttributes
+	45, // 73: kmate.v1.AccessReviewResponse.results:type_name -> kmate.v1.AccessReviewResult
+	50, // 74: kmate.v1.ClusterInfoResponse.info:type_name -> kmate.v1.ClusterInfo
+	1,  // 75: kmate.v1.AgentService.Enroll:input_type -> kmate.v1.EnrollRequest
+	3,  // 76: kmate.v1.AgentService.Tunnel:input_type -> kmate.v1.Frame
+	2,  // 77: kmate.v1.AgentService.Enroll:output_type -> kmate.v1.EnrollResponse
+	3,  // 78: kmate.v1.AgentService.Tunnel:output_type -> kmate.v1.Frame
+	77, // [77:79] is the sub-list for method output_type
+	75, // [75:77] is the sub-list for method input_type
+	75, // [75:75] is the sub-list for extension type_name
+	75, // [75:75] is the sub-list for extension extendee
+	0,  // [0:75] is the sub-list for field type_name
 }
 
 func init() { file_kmate_v1_agent_proto_init() }
@@ -3657,6 +3961,7 @@ func file_kmate_v1_agent_proto_init() {
 		(*Request_Metrics)(nil),
 		(*Request_ClusterInfo)(nil),
 		(*Request_HelmGet)(nil),
+		(*Request_AccessReview)(nil),
 	}
 	file_kmate_v1_agent_proto_msgTypes[8].OneofWrappers = []any{
 		(*Response_Discover)(nil),
@@ -3672,6 +3977,7 @@ func file_kmate_v1_agent_proto_init() {
 		(*Response_Metrics)(nil),
 		(*Response_ClusterInfo)(nil),
 		(*Response_HelmGet)(nil),
+		(*Response_AccessReview)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3679,7 +3985,7 @@ func file_kmate_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kmate_v1_agent_proto_rawDesc), len(file_kmate_v1_agent_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   45,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

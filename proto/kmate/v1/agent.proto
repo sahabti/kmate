@@ -87,6 +87,7 @@ message Request {
     MetricsRequest metrics = 24;
     ClusterInfoRequest cluster_info = 25;
     HelmGetRequest helm_get = 26;
+    AccessReviewRequest access_review = 27;
   }
 }
 
@@ -106,6 +107,7 @@ message Response {
     MetricsResponse metrics = 24;
     ClusterInfoResponse cluster_info = 25;
     HelmGetResponse helm_get = 26;
+    AccessReviewResponse access_review = 27;
   }
 }
 
@@ -263,6 +265,31 @@ message MetricSample {
   int64 memory_bytes = 5;
 }
 message MetricsResponse { repeated MetricSample samples = 1; }
+
+// ResourceAttributes mirrors authorization.k8s.io ResourceAttributes: one
+// "can I do <verb> on <resource>" question.
+message ResourceAttributes {
+  string group = 1;
+  string version = 2;
+  string resource = 3;
+  string subresource = 4;
+  string namespace = 5;
+  string name = 6;
+  string verb = 7; // get | list | watch | create | update | patch | delete | ...
+}
+
+message AccessReviewResult {
+  bool allowed = 1;
+  bool denied = 2;
+  string reason = 3;
+}
+
+// AccessReview asks the API server what the request identity may do. The agent
+// uses SelfSubjectAccessReview with the impersonated client, which is exactly
+// what `kubectl auth can-i` does. Without impersonation the answers describe the
+// agent's own ServiceAccount and carry reason "shared identity".
+message AccessReviewRequest { repeated ResourceAttributes items = 1; }
+message AccessReviewResponse { repeated AccessReviewResult results = 1; }
 
 message ClusterInfoRequest {}
 message ClusterInfoResponse { ClusterInfo info = 1; }

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	kmatev1 "github.com/kmate-dev/kmate/gen/go/kmate/v1"
 	"github.com/kmate-dev/kmate/gen/go/kmate/v1/kmatev1connect"
@@ -47,9 +49,13 @@ func NewHubService(st *store.Store, a *auth.Authenticator, reg *registry.Registr
 
 // Login authenticates with email/password.
 func (h *HubService) Login(ctx context.Context, req *connect.Request[kmatev1.LoginRequest]) (*connect.Response[kmatev1.LoginResponse], error) {
-	u, err := h.store.GetUserByEmail(ctx, req.Msg.GetEmail())
+	u, err := h.store.GetUserByEmail(ctx, strings.TrimSpace(strings.ToLower(req.Msg.GetEmail())))
 	if err != nil || !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
+	}
+	if !u.Active {
+		_ = h.store.Audit(ctx, store.AuditEvent{User: u.Email, Action: "login", Result: "denied: account deactivated"})
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account is deactivated"))
 	}
 	p := &auth.Principal{ID: u.ID, Email: u.Email, Role: u.Role}
 	tok, err := h.auth.Issue(p)
@@ -84,8 +90,12 @@ func (h *HubService) ListClusters(ctx context.Context, _ *connect.Request[kmatev
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	p := auth.FromContext(ctx)
 	out := make([]*kmatev1.Cluster, 0, len(cs))
 	for _, c := range cs {
+		if !p.CanAccessCluster(c.ID) {
+			continue // a cluster you hold no grant on is invisible, not forbidden
+		}
 		out = append(out, h.clusterProto(c))
 	}
 	return connect.NewResponse(&kmatev1.ListClustersResponse{Clusters: out}), nil
@@ -93,6 +103,9 @@ func (h *HubService) ListClusters(ctx context.Context, _ *connect.Request[kmatev
 
 // GetCluster returns one cluster.
 func (h *HubService) GetCluster(ctx context.Context, req *connect.Request[kmatev1.GetClusterRequest]) (*connect.Response[kmatev1.GetClusterResponse], error) {
+	if err := auth.AuthorizeCluster(ctx, req.Msg.GetId(), false); err != nil {
+		return nil, err
+	}
 	c, err := h.store.GetCluster(ctx, req.Msg.GetId())
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, connect.NewError(connect.CodeNotFound, err)
@@ -105,7 +118,7 @@ func (h *HubService) GetCluster(ctx context.Context, req *connect.Request[kmatev
 
 // CreateCluster registers a cluster and issues an enrollment token.
 func (h *HubService) CreateCluster(ctx context.Context, req *connect.Request[kmatev1.CreateClusterRequest]) (*connect.Response[kmatev1.CreateClusterResponse], error) {
-	if err := auth.RequireWrite(ctx); err != nil {
+	if err := auth.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	name := req.Msg.GetName()
@@ -135,7 +148,7 @@ func (h *HubService) CreateCluster(ctx context.Context, req *connect.Request[kma
 
 // DeleteCluster removes a cluster.
 func (h *HubService) DeleteCluster(ctx context.Context, req *connect.Request[kmatev1.DeleteClusterRequest]) (*connect.Response[kmatev1.DeleteClusterResponse], error) {
-	if err := auth.RequireWrite(ctx); err != nil {
+	if err := auth.RequireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	c, err := h.store.GetCluster(ctx, req.Msg.GetId())
@@ -164,7 +177,11 @@ func (h *HubService) WatchClusters(ctx context.Context, _ *connect.Request[kmate
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
+	p := auth.FromContext(ctx)
 	for _, c := range cs {
+		if !p.CanAccessCluster(c.ID) {
+			continue
+		}
 		if err := stream.Send(&kmatev1.ClusterEvent{Type: "ADDED", Cluster: h.clusterProto(c)}); err != nil {
 			return err
 		}
@@ -172,6 +189,9 @@ func (h *HubService) WatchClusters(ctx context.Context, _ *connect.Request[kmate
 	for {
 		select {
 		case ev := <-sub:
+			if !p.CanAccessCluster(ev.GetCluster().GetId()) {
+				continue
+			}
 			if err := stream.Send(ev); err != nil {
 				return err
 			}
@@ -183,6 +203,13 @@ func (h *HubService) WatchClusters(ctx context.Context, _ *connect.Request[kmate
 
 // ListAuditEvents returns audit history.
 func (h *HubService) ListAuditEvents(ctx context.Context, req *connect.Request[kmatev1.ListAuditEventsRequest]) (*connect.Response[kmatev1.ListAuditEventsResponse], error) {
+	if cid := req.Msg.GetClusterId(); cid != "" {
+		if err := auth.AuthorizeCluster(ctx, cid, false); err != nil {
+			return nil, err
+		}
+	} else if err := auth.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	evs, err := h.store.ListAudit(ctx, req.Msg.GetClusterId(), int(req.Msg.GetLimit()))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -205,5 +232,13 @@ func (h *HubService) clusterProto(c *store.Cluster) *kmatev1.Cluster {
 }
 
 func userProto(u *store.User) *kmatev1.User {
-	return &kmatev1.User{Id: u.ID, Email: u.Email, Name: u.Name, Role: u.Role}
+	out := &kmatev1.User{
+		Id: u.ID, Email: u.Email, Name: u.Name, Role: u.Role,
+		K8SUser: u.K8sUser, K8SGroups: u.K8sGroups, Active: u.Active,
+		CreatedAt: timestamppb.New(u.CreatedAt),
+	}
+	if !u.UpdatedAt.IsZero() {
+		out.UpdatedAt = timestamppb.New(u.UpdatedAt)
+	}
+	return out
 }

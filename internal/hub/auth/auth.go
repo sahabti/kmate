@@ -23,20 +23,51 @@ const (
 // SessionTTL is how long a login token is valid.
 const SessionTTL = 12 * time.Hour
 
-// Principal is the authenticated user placed in the context.
+// Principal is the authenticated user placed in the context. Role, the Kubernetes
+// identity and Grants are refreshed from the directory on every request, so a
+// revoked grant or a deactivated account takes effect immediately rather than when
+// the token expires.
 type Principal struct {
-	ID    string
-	Email string
-	Role  string
+	ID     string
+	Email  string
+	Role   string
+	Active bool
+
+	// Kubernetes identity the agent impersonates. Empty K8sUser means "use Email".
+	K8sUser   string
+	K8sGroups []string
+
+	// Grants is the per-cluster access this user holds.
+	Grants []Grant
 }
 
-// CanWrite reports whether the principal may mutate cluster state.
+// CanWrite reports whether the principal's global role may mutate state.
+// Cluster traffic must use AuthorizeCluster, which also honours grants.
 func (p *Principal) CanWrite() bool {
 	return p != nil && (p.Role == RoleAdmin || p.Role == RoleOperator)
 }
 
-// Groups returns the Kubernetes-style groups used for impersonation.
-func (p *Principal) Groups() []string { return []string{"kmate:" + p.Role} }
+// KubeUser is the username the agent impersonates for this principal.
+func (p *Principal) KubeUser() string {
+	if p == nil {
+		return ""
+	}
+	if p.K8sUser != "" {
+		return p.K8sUser
+	}
+	return p.Email
+}
+
+// Groups returns the Kubernetes groups used for impersonation.
+func (p *Principal) Groups() []string {
+	if p != nil && len(p.K8sGroups) > 0 {
+		return p.K8sGroups
+	}
+	if p == nil {
+		return nil
+	}
+	return []string{"kmate:" + p.Role}
+}
 
 type ctxKey struct{}
 
@@ -51,13 +82,21 @@ func FromContext(ctx context.Context) *Principal {
 	return p
 }
 
-// Authenticator issues and verifies tokens.
+// Authenticator issues and verifies tokens, and resolves authorization state.
 type Authenticator struct {
 	secret []byte
+	res    *resolver
 }
 
 // New creates an authenticator with an HS256 secret.
 func New(secret []byte) *Authenticator { return &Authenticator{secret: secret} }
+
+// WithDirectory attaches the account/grant source. Without it the authenticator
+// trusts the token alone, which is only useful in tests.
+func (a *Authenticator) WithDirectory(d Directory) *Authenticator {
+	a.res = &resolver{dir: d, m: map[string]resolved{}}
+	return a
+}
 
 // HashPassword bcrypts a password.
 func HashPassword(pw string) (string, error) {
@@ -113,7 +152,8 @@ func (a *Authenticator) Verify(token string) (*Principal, error) {
 	return &Principal{ID: c.Subject, Email: c.Email, Role: c.Role}, nil
 }
 
-// FromHTTP extracts a principal from Authorization: Bearer or ?token=.
+// FromHTTP extracts a principal from Authorization: Bearer or ?token=, refreshed
+// from the directory so grants and deactivation apply to WebSocket and proxy routes.
 func (a *Authenticator) FromHTTP(r *http.Request) (*Principal, error) {
 	tok := TokenFromHeader(r.Header)
 	if tok == "" {
@@ -122,7 +162,20 @@ func (a *Authenticator) FromHTTP(r *http.Request) (*Principal, error) {
 	if tok == "" {
 		return nil, ErrUnauthenticated
 	}
-	return a.Verify(tok)
+	p, err := a.Verify(tok)
+	if err != nil {
+		return nil, err
+	}
+	return a.hydrate(r.Context(), p)
+}
+
+// VerifyHydrated verifies a raw token and refreshes it from the directory.
+func (a *Authenticator) VerifyHydrated(ctx context.Context, token string) (*Principal, error) {
+	p, err := a.Verify(token)
+	if err != nil {
+		return nil, err
+	}
+	return a.hydrate(ctx, p)
 }
 
 // TokenFromHeader reads a bearer token.
@@ -152,6 +205,10 @@ func (a *Authenticator) Interceptor(public ...string) connect.Interceptor {
 		p, err := a.Verify(tok)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		}
+		p, err = a.hydrate(ctx, p)
+		if err != nil {
+			return nil, err
 		}
 		return WithPrincipal(ctx, p), nil
 	}

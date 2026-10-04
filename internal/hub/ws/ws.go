@@ -94,12 +94,15 @@ func (h *Handler) exec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.CloseNow()
-	if !p.CanWrite() {
-		c.Close(websocket.StatusPolicyViolation, "role cannot exec")
-		return
-	}
 	q := r.URL.Query()
 	clusterID := r.PathValue("id")
+	// Exec is a write: it can change anything inside the container.
+	if err := auth.AuthorizeCluster(auth.WithPrincipal(r.Context(), p), clusterID, true, q.Get("namespace")); err != nil {
+		_ = h.store.Audit(r.Context(), store.AuditEvent{User: p.Email, ClusterID: clusterID, Action: "exec",
+			Target: q.Get("namespace") + "/" + q.Get("pod"), Result: "denied: " + err.Error()})
+		c.Close(websocket.StatusPolicyViolation, truncate(err.Error()))
+		return
+	}
 	cols, _ := strconv.Atoi(q.Get("cols"))
 	rows, _ := strconv.Atoi(q.Get("rows"))
 	cmd := q["cmd"]
@@ -123,6 +126,12 @@ func (h *Handler) portForward(w http.ResponseWriter, r *http.Request) {
 	defer c.CloseNow()
 	q := r.URL.Query()
 	clusterID := r.PathValue("id")
+	if err := auth.AuthorizeCluster(auth.WithPrincipal(r.Context(), p), clusterID, false, q.Get("namespace")); err != nil {
+		_ = h.store.Audit(r.Context(), store.AuditEvent{User: p.Email, ClusterID: clusterID, Action: "port-forward",
+			Target: q.Get("namespace") + "/" + q.Get("pod"), Result: "denied: " + err.Error()})
+		c.Close(websocket.StatusPolicyViolation, truncate(err.Error()))
+		return
+	}
 	port, _ := strconv.Atoi(q.Get("port"))
 	req := api.NewRequest(auth.WithPrincipal(r.Context(), p))
 	req.Kind = &kmatev1.Request_PortForward{PortForward: &kmatev1.PortForwardRequest{Namespace: q.Get("namespace"), Pod: q.Get("pod"), Port: int32(port)}}

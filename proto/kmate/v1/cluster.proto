@@ -26,6 +26,7 @@ service ClusterService {
   rpc ListHelmReleases(ClusterHelmListRequest) returns (HelmListResponse);
   rpc GetHelmRelease(ClusterHelmGetRequest) returns (HelmGetResponse);
   rpc GetMetrics(ClusterMetricsRequest) returns (MetricsResponse);
+  rpc AccessReview(ClusterAccessReviewRequest) returns (AccessReviewResponse);
 }
 
 message ClusterDiscoverRequest { string cluster_id = 1; }
@@ -42,3 +43,4 @@ message ClusterCatalogRequest { string cluster_id = 1; }
 message ClusterHelmListRequest { string cluster_id = 1; string namespace = 2; }
 message ClusterHelmGetRequest { string cluster_id = 1; HelmGetRequest helm = 2; }
 message ClusterMetricsRequest { string cluster_id = 1; MetricsRequest metrics = 2; }
+message ClusterAccessReviewRequest { string cluster_id = 1; AccessReviewRequest review = 2; }

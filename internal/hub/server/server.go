@@ -62,6 +62,9 @@ type Server struct {
 
 // New builds the server.
 func New(cfg Config, st *store.Store, a *auth.Authenticator, log *slog.Logger) (*Server, error) {
+	// The store is the source of truth for roles, grants and deactivation, so the
+	// authenticator re-reads it per request rather than trusting the token alone.
+	a = a.WithDirectory(st)
 	reg := registry.New()
 	rl := relay.New(st, reg, log)
 	s := &Server{cfg: cfg, log: log, store: st, auth: a, reg: reg, relay: rl}
