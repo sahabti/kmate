@@ -41,6 +41,30 @@ spec:
           valueFrom: { secretKeyRef: { name: {{ include "kmate-hub.secretName" . }}, key: adminPassword } }
         - name: KMATE_JWT_SECRET
           valueFrom: { secretKeyRef: { name: {{ include "kmate-hub.secretName" . }}, key: jwtSecret } }
+        - { name: KMATE_LOCAL_LOGIN, value: {{ .Values.localLogin | quote }} }
+        {{- if .Values.oidc.enabled }}
+        - { name: KMATE_OIDC_ISSUER, value: {{ required "oidc.issuer is required when oidc.enabled" .Values.oidc.issuer | quote }} }
+        - { name: KMATE_OIDC_CLIENT_ID, value: {{ required "oidc.clientId is required when oidc.enabled" .Values.oidc.clientId | quote }} }
+        {{- if or .Values.oidc.clientSecret .Values.oidc.existingSecret }}
+        - name: KMATE_OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.oidc.existingSecret | default (printf "%s-oidc" (include "kmate-hub.name" .)) }}
+              key: oidcClientSecret
+        {{- end }}
+        {{- with .Values.oidc.scopes }}{{ printf "- { name: KMATE_OIDC_SCOPES, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.redirectUrl }}{{ printf "- { name: KMATE_OIDC_REDIRECT_URL, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.buttonLabel }}{{ printf "- { name: KMATE_OIDC_BUTTON_LABEL, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.usernameClaim }}{{ printf "- { name: KMATE_OIDC_USERNAME_CLAIM, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.emailClaim }}{{ printf "- { name: KMATE_OIDC_EMAIL_CLAIM, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.nameClaim }}{{ printf "- { name: KMATE_OIDC_NAME_CLAIM, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.groupsClaim }}{{ printf "- { name: KMATE_OIDC_GROUPS_CLAIM, value: %q }" . | nindent 8 }}{{ end }}
+        - { name: KMATE_OIDC_AUTO_PROVISION, value: {{ .Values.oidc.autoProvision | quote }} }
+        - { name: KMATE_OIDC_DEFAULT_ROLE, value: {{ .Values.oidc.defaultRole | quote }} }
+        {{- with .Values.oidc.adminGroups }}{{ printf "- { name: KMATE_OIDC_ADMIN_GROUPS, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.operatorGroups }}{{ printf "- { name: KMATE_OIDC_OPERATOR_GROUPS, value: %q }" . | nindent 8 }}{{ end }}
+        {{- with .Values.oidc.viewerGroups }}{{ printf "- { name: KMATE_OIDC_VIEWER_GROUPS, value: %q }" . | nindent 8 }}{{ end }}
+        {{- end }}
         {{- if and (not .Values.insecure) .Values.tls.secretName }}
         - { name: KMATE_TLS_CERT, value: /etc/kmate/tls/tls.crt }
         - { name: KMATE_TLS_KEY,  value: /etc/kmate/tls/tls.key }

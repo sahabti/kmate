@@ -29,9 +29,18 @@ rbac:
   exec: false
   impersonate: false
 
+# The agent keeps informer caches in memory, so its footprint scales with the
+# number of objects in the cluster, not with how many people are looking at it.
+# An OOMKill takes the whole cluster offline in KMate rather than degrading one
+# dashboard, so these defaults are deliberately generous. See docs/02-agent.md
+# for a sizing table, and scope `namespaces` on very large clusters.
 resources:
-  requests: { cpu: 100m, memory: 128Mi }
-  limits:   { cpu: "1",  memory: 1Gi }
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: "1",  memory: 2Gi }
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
 
 logLevel: info
 networkPolicy:

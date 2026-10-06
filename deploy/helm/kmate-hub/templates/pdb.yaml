@@ -1,0 +1,12 @@
+{{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.replicaCount) 0) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "kmate-hub.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "kmate-hub.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: {{- include "kmate-hub.selectorLabels" . | nindent 6 }}
+{{- end }}

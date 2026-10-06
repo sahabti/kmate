@@ -116,6 +116,41 @@ Pods owned by a Job that has finished (`Succeeded`/`Failed`) are ignored; runnin
 pods are listed as workloads but never affect health, so a completed migration hook
 does not mark a service Degraded.
 
+## Sizing and memory
+
+The agent keeps informer caches in memory, so its footprint tracks **how many
+objects the cluster holds**, not how many people are looking at it. Idle does not
+mean cheap.
+
+This matters more here than for a conventional dashboard. KMate routes every
+request for a cluster through its one agent, so an OOMKill does not degrade a
+view, it takes the whole cluster offline until the pod is rescheduled. Size for
+the peak, not the average, and alert before the limit.
+
+| Cluster | Pods | Namespaces | Suggested limit |
+|---|---|---|---|
+| Development / kind | < 100 | < 20 | 256Mi |
+| Small production | < 1 000 | < 50 | 512Mi |
+| Medium | < 5 000 | < 200 | 1Gi |
+| Large | < 20 000 | < 500 | 2Gi (chart default) |
+| Very large | 20 000+ | 500+ | 4Gi, or scope `namespaces` |
+
+These are starting points. Measure with `kmate_agent_memory_bytes` under real
+load and set the limit near twice the observed peak, which leaves room for the
+resync spikes that happen when the agent reconnects and refills its caches.
+
+Two levers reduce the footprint directly:
+
+- **Scope the namespaces.** `--set namespaces={team-a,team-b}` builds informers
+  for those namespaces only. On a large multi-tenant cluster this is the single
+  biggest saving, and it pairs naturally with per-namespace grants.
+- **Leave CRDs alone.** Custom resource informers are created lazily on first
+  watch and torn down after ten minutes idle, so nobody pays for CRDs they never
+  open.
+
+A `PodDisruptionBudget` ships enabled by default, because a node drain that
+evicts the agent blanks the cluster in the UI until it comes back.
+
 ## Failure behaviour
 
 | Failure | Behaviour |
@@ -128,5 +163,23 @@ does not mark a service Degraded.
 ## Observability
 
 - `/healthz`, `/readyz` (ready = tunnel connected + informers synced)
-- `/metrics` Prometheus: tunnel state, frames in/out, informer object counts, request latencies
+- `/metrics` Prometheus:
+
+  | Metric | Why you care |
+  |---|---|
+  | `kmate_agent_memory_bytes` | Go heap in use. Alert at ~70% of the limit. |
+  | `kmate_agent_memory_sys_bytes` | Memory taken from the OS, closer to what the kernel counts. |
+  | `kmate_agent_cache_objects{gvr=...}` | Objects per informer. Finds the resource behind a jump. |
+  | `kmate_agent_cache_objects_total` | Everything cached, the number that tracks memory. |
+  | `kmate_agent_cache_informers` | Active informers, including lazily created CRD ones. |
+  | `kmate_agent_goroutines` | A climbing count suggests leaked streams. |
+  | `kmate_agent_tunnel_connected` | 0 means the cluster is dark in the UI. |
+  | `kmate_agent_catalog_entries` | Service Catalog size. |
+
+  A reasonable starting alert, assuming a 2Gi limit:
+
+  ```
+  kmate_agent_memory_bytes > 1.4e9          # 70% of the limit, for 10m
+  kmate_agent_tunnel_connected == 0         # for 5m
+  ```
 - Structured JSON logs (slog)

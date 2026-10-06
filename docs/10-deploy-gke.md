@@ -75,6 +75,25 @@ They need to reach the hub's port 9090. Options: a dedicated TLS-passthrough lis
 on the gateway, an internal LoadBalancer, or gRPC-over-WebSocket through the same HTTPS
 host (phase 5). Not set up in this reference deployment.
 
+## Resources and disruption
+
+Both charts ship a `PodDisruptionBudget` with `minAvailable: 1`. This matters
+more than it looks: a node drain that evicts the agent blanks the whole cluster
+in the UI until it is rescheduled, because every request for that cluster goes
+through it.
+
+The agent's memory tracks the number of objects in the cluster, not the number of
+viewers, so size it from the object count. The chart defaults to a 2Gi limit;
+see the table in [02-agent.md](02-agent.md) and scope `namespaces` on very large
+clusters. Scrape `kmate_agent_memory_bytes` and alert at roughly 70% of the limit
+rather than discovering the ceiling during an incident.
+
+## Single sign-on
+
+To put the hub behind your identity provider, set the `oidc.*` values on the hub
+chart. Behind an Istio gateway the forwarded headers are already set, so the
+callback resolves to `https://` correctly. See [12-oidc.md](12-oidc.md).
+
 ## Security posture of this deployment
 
 - Not reachable from the internet. Internal gateway, VPN only.

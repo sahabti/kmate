@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -166,10 +167,24 @@ func main() {
 		fmt.Fprintf(w, "# HELP kmate_agent_tunnel_connected 1 when the tunnel to the hub is up\n# TYPE kmate_agent_tunnel_connected gauge\nkmate_agent_tunnel_connected %d\n", connected)
 		fmt.Fprintf(w, "# HELP kmate_agent_catalog_version Current service catalog version\n# TYPE kmate_agent_catalog_version gauge\nkmate_agent_catalog_version %d\n", catalog.Version())
 		fmt.Fprintf(w, "# HELP kmate_agent_catalog_entries Number of catalog entries\n# TYPE kmate_agent_catalog_entries gauge\nkmate_agent_catalog_entries %d\n", len(catalog.Current().Entries))
+		stats := c.Stats()
+		total := 0
 		fmt.Fprintf(w, "# HELP kmate_agent_cache_objects Objects held per informer\n# TYPE kmate_agent_cache_objects gauge\n")
-		for gvr, n := range c.Stats() {
+		for gvr, n := range stats {
 			fmt.Fprintf(w, "kmate_agent_cache_objects{gvr=%q} %d\n", gvr, n)
+			total += n
 		}
+		fmt.Fprintf(w, "# HELP kmate_agent_cache_informers Number of active informers\n# TYPE kmate_agent_cache_informers gauge\nkmate_agent_cache_informers %d\n", len(stats))
+		fmt.Fprintf(w, "# HELP kmate_agent_cache_objects_total Objects held across every informer\n# TYPE kmate_agent_cache_objects_total gauge\nkmate_agent_cache_objects_total %d\n", total)
+
+		// Informer caches dominate the agent's footprint, and an OOMKill takes the
+		// whole cluster offline rather than one dashboard. Alert on these before
+		// the limit rather than discovering it during an incident.
+		var ms runtime.MemStats
+		runtime.ReadMemStats(&ms)
+		fmt.Fprintf(w, "# HELP kmate_agent_memory_bytes Resident Go heap in use\n# TYPE kmate_agent_memory_bytes gauge\nkmate_agent_memory_bytes %d\n", ms.HeapInuse)
+		fmt.Fprintf(w, "# HELP kmate_agent_memory_sys_bytes Memory obtained from the OS\n# TYPE kmate_agent_memory_sys_bytes gauge\nkmate_agent_memory_sys_bytes %d\n", ms.Sys)
+		fmt.Fprintf(w, "# HELP kmate_agent_goroutines Running goroutines\n# TYPE kmate_agent_goroutines gauge\nkmate_agent_goroutines %d\n", runtime.NumGoroutine())
 	})
 	mux.HandleFunc("/debug/catalog", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
