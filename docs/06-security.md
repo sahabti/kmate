@@ -125,6 +125,47 @@ Without impersonation the answers describe the agent's own ServiceAccount and ca
 - `rbac.impersonate=false`: `impersonate` on `users`, `groups`, `serviceaccounts`.
 - `rbac.secretsRead=true`: can be set false to exclude Secrets from the reader role entirely.
 
+## Single sign-on
+
+KMate accepts any standards-compliant OIDC provider. The hub reads the issuer's
+discovery document, so Keycloak, Okta, Authentik, Entra, Google and Dex are the
+same code path.
+
+The flow is the authorization-code grant with PKCE. Login state lives in a
+signed, HttpOnly, SameSite=Lax cookie that expires in ten minutes and carries the
+nonce, the PKCE verifier and the post-login path; an absolute or off-origin
+redirect is collapsed to `/`. The ID token is verified against the provider's
+JWKS and its nonce matched before any account is touched. The session token comes
+back in the URL fragment rather than the query string, so it does not land in
+proxy or access logs.
+
+**Claims become the Kubernetes identity.** The username claim is written to
+`k8s_user` and the groups claim to `k8s_groups`, which is what the agent
+impersonates. The effect is that the directory you already run decides what
+people can do in the cluster, enforced by the API server rather than by KMate:
+
+```
+provider group "platform-admins"
+   → user.k8s_groups = ["platform-admins"]
+   → agent impersonates Impersonate-Group: platform-admins
+   → your ClusterRoleBinding decides
+```
+
+Group-to-role mappings (`KMATE_OIDC_ADMIN_GROUPS` and friends) additionally set
+the KMate role, re-evaluated on every login so directory changes take effect at
+the next sign-in. Without mappings everyone gets the default role and you assign
+cluster access by grant instead.
+
+Accounts provisioned by a provider carry a flag, have no password hash, and are
+refused by the password form with a message pointing at the SSO button, so an
+administrator cannot accidentally create a local bypass for a federated identity.
+Auto-provisioning can be disabled, in which case an administrator must create the
+account first and login matches on the username claim.
+
+`KMATE_LOCAL_LOGIN=false` disables passwords entirely, but is ignored when no
+issuer is configured so a misconfiguration cannot lock everyone out. Keep one
+local administrator until SSO is proven.
+
 ## Transport
 
 - Client ⇄ Hub: TLS 1.2+, HSTS, CSP on the SPA.

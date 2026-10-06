@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/kmate-dev/kmate/internal/hub/auth"
+	"github.com/kmate-dev/kmate/internal/hub/oidc"
 	"github.com/kmate-dev/kmate/internal/hub/server"
 	"github.com/kmate-dev/kmate/internal/hub/store"
 	"github.com/kmate-dev/kmate/internal/version"
@@ -23,6 +24,49 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envBool(key string, def bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	return strings.EqualFold(v, "true") || v == "1"
+}
+
+// list splits a comma-separated env var, dropping blanks.
+func list(key string) []string {
+	var out []string
+	for _, p := range strings.Split(os.Getenv(key), ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// oidcConfig reads the provider settings. Only the issuer and client id are
+// required; everything else comes from discovery or a default, which is what
+// makes the same code work with Keycloak, Okta, Authentik, Entra, Google or Dex.
+func oidcConfig() oidc.Config {
+	return oidc.Config{
+		Issuer:             os.Getenv("KMATE_OIDC_ISSUER"),
+		ClientID:           os.Getenv("KMATE_OIDC_CLIENT_ID"),
+		ClientSecret:       os.Getenv("KMATE_OIDC_CLIENT_SECRET"),
+		Scopes:             list("KMATE_OIDC_SCOPES"),
+		RedirectURL:        os.Getenv("KMATE_OIDC_REDIRECT_URL"),
+		ButtonLabel:        os.Getenv("KMATE_OIDC_BUTTON_LABEL"),
+		UsernameClaim:      os.Getenv("KMATE_OIDC_USERNAME_CLAIM"),
+		EmailClaim:         os.Getenv("KMATE_OIDC_EMAIL_CLAIM"),
+		NameClaim:          os.Getenv("KMATE_OIDC_NAME_CLAIM"),
+		GroupsClaim:        os.Getenv("KMATE_OIDC_GROUPS_CLAIM"),
+		AutoProvision:      envBool("KMATE_OIDC_AUTO_PROVISION", true),
+		DefaultRole:        env("KMATE_OIDC_DEFAULT_ROLE", auth.RoleViewer),
+		AdminGroups:        list("KMATE_OIDC_ADMIN_GROUPS"),
+		OperatorGroups:     list("KMATE_OIDC_OPERATOR_GROUPS"),
+		ViewerGroups:       list("KMATE_OIDC_VIEWER_GROUPS"),
+		InsecureSkipVerify: envBool("KMATE_OIDC_INSECURE_SKIP_VERIFY", false),
+	}
 }
 
 func main() {
@@ -54,6 +98,8 @@ func run(ctx context.Context, log *slog.Logger) error {
 		TLSKey:          os.Getenv("KMATE_TLS_KEY"),
 		CORSOrigins:     strings.Split(env("KMATE_CORS_ORIGINS", "http://localhost:5173,http://localhost:1420,tauri://localhost"), ","),
 		WebDir:          os.Getenv("KMATE_WEB_DIR"),
+		OIDC:            oidcConfig(),
+		LocalLogin:      envBool("KMATE_LOCAL_LOGIN", true),
 	}
 	log.Info("starting kmate-hub", "version", version.Version, "insecure", cfg.Insecure)
 
@@ -73,6 +119,13 @@ func run(ctx context.Context, log *slog.Logger) error {
 		log.Warn("KMATE_JWT_SECRET not set; generated a random secret, sessions will not survive restarts")
 	}
 	a := auth.New([]byte(secret))
+	cfg.JWTSecret = []byte(secret)
+	if cfg.OIDC.Enabled() {
+		log.Info("oidc enabled", "issuer", cfg.OIDC.Issuer, "client_id", cfg.OIDC.ClientID, "local_login", cfg.LocalLogin)
+	} else if !cfg.LocalLogin {
+		log.Warn("KMATE_LOCAL_LOGIN=false but no OIDC issuer configured; password login stays enabled so the hub is reachable")
+		cfg.LocalLogin = true
+	}
 
 	if err := bootstrapAdmin(ctx, st, log); err != nil {
 		return err

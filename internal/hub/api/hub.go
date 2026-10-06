@@ -50,7 +50,17 @@ func NewHubService(st *store.Store, a *auth.Authenticator, reg *registry.Registr
 // Login authenticates with email/password.
 func (h *HubService) Login(ctx context.Context, req *connect.Request[kmatev1.LoginRequest]) (*connect.Response[kmatev1.LoginResponse], error) {
 	u, err := h.store.GetUserByEmail(ctx, strings.TrimSpace(strings.ToLower(req.Msg.GetEmail())))
-	if err != nil || !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
+	}
+	// Checked before the password: a provider-managed account has no usable hash,
+	// so the generic failure would otherwise leave the person guessing when the
+	// real answer is "use the SSO button".
+	if u.OIDC {
+		_ = h.store.Audit(ctx, store.AuditEvent{User: u.Email, Action: "login", Result: "denied: use single sign-on"})
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("this account signs in through your identity provider"))
+	}
+	if !auth.CheckPassword(u.PasswordHash, req.Msg.GetPassword()) {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
 	}
 	if !u.Active {
@@ -234,7 +244,7 @@ func (h *HubService) clusterProto(c *store.Cluster) *kmatev1.Cluster {
 func userProto(u *store.User) *kmatev1.User {
 	out := &kmatev1.User{
 		Id: u.ID, Email: u.Email, Name: u.Name, Role: u.Role,
-		K8SUser: u.K8sUser, K8SGroups: u.K8sGroups, Active: u.Active,
+		K8SUser: u.K8sUser, K8SGroups: u.K8sGroups, Active: u.Active, Oidc: u.OIDC,
 		CreatedAt: timestamppb.New(u.CreatedAt),
 	}
 	if !u.UpdatedAt.IsZero() {

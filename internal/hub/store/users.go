@@ -21,6 +21,9 @@ type User struct {
 	K8sUser   string
 	K8sGroups []string
 	Active    bool
+	// OIDC marks an account provisioned by an identity provider. Such accounts
+	// have no usable password and are refused by the local login path.
+	OIDC      bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -41,7 +44,7 @@ func (u *User) EffectiveK8sGroups() []string {
 	return []string{"kmate:" + u.Role}
 }
 
-const userCols = `id, email, name, password_hash, role, k8s_user, k8s_groups, active, created_at, updated_at`
+const userCols = `id, email, name, password_hash, role, k8s_user, k8s_groups, active, oidc, created_at, updated_at`
 
 // CreateUser inserts a user.
 func (s *Store) CreateUser(ctx context.Context, u *User) error {
@@ -63,8 +66,8 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 		return err
 	}
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO users(`+userCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, u.K8sUser, groups, u.Active, u.CreatedAt, u.UpdatedAt)
+		`INSERT INTO users(`+userCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, u.K8sUser, groups, u.Active, u.OIDC, u.CreatedAt, u.UpdatedAt)
 	return err
 }
 
@@ -104,8 +107,8 @@ func (s *Store) UpdateUser(ctx context.Context, u *User) error {
 	}
 	u.UpdatedAt = time.Now().UTC()
 	_, err = s.db.ExecContext(ctx,
-		`UPDATE users SET name = ?, role = ?, k8s_user = ?, k8s_groups = ?, active = ?, updated_at = ? WHERE id = ?`,
-		u.Name, u.Role, u.K8sUser, groups, u.Active, u.UpdatedAt, u.ID)
+		`UPDATE users SET name = ?, role = ?, k8s_user = ?, k8s_groups = ?, active = ?, oidc = ?, updated_at = ? WHERE id = ?`,
+		u.Name, u.Role, u.K8sUser, groups, u.Active, u.OIDC, u.UpdatedAt, u.ID)
 	return err
 }
 
@@ -149,7 +152,7 @@ func scanUserRows(r rowScanner) (*User, error) {
 	var u User
 	var groups string
 	var updated sql.NullTime
-	if err := r.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.K8sUser, &groups, &u.Active, &u.CreatedAt, &updated); err != nil {
+	if err := r.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.K8sUser, &groups, &u.Active, &u.OIDC, &u.CreatedAt, &updated); err != nil {
 		return nil, err
 	}
 	u.K8sGroups = decodeList(groups)

@@ -23,6 +23,34 @@ admin:
   existingSecret: ""   # keys: adminPassword, jwtSecret
 
 corsOrigins: "" # extra origins, comma separated (tauri://localhost etc. are always allowed)
+
+# Single sign-on. Works with any standards-compliant OIDC provider (Keycloak,
+# Okta, Authentik, Entra, Google, Dex): the hub reads the provider's discovery
+# document, so only the issuer and client need configuring. See docs/12-oidc.md.
+oidc:
+  enabled: false
+  issuer: ""            # e.g. https://keycloak.example.com/realms/kmate
+  clientId: ""
+  clientSecret: ""      # omit when using existingSecret
+  existingSecret: ""    # secret with key oidcClientSecret
+  scopes: ""            # default: openid profile email. Okta/Authentik also need "groups"
+  redirectUrl: ""       # default: <publicUrl>/auth/oidc/callback
+  buttonLabel: ""       # default derived from the issuer host
+  usernameClaim: ""     # default: email
+  emailClaim: ""
+  nameClaim: ""
+  groupsClaim: ""       # default: groups
+  autoProvision: true
+  defaultRole: viewer
+  # Map provider groups onto KMate roles. Leave empty to give everyone
+  # defaultRole and assign cluster access by grant instead.
+  adminGroups: ""
+  operatorGroups: ""
+  viewerGroups: ""
+
+# Set false to require single sign-on once OIDC works. Ignored (and forced back
+# on) when no OIDC issuer is configured, so the hub can never lock everyone out.
+localLogin: true
 logLevel: info
 
 persistence:
@@ -56,6 +84,10 @@ ingress:
 resources:
   requests: { cpu: 100m, memory: 128Mi }
   limits:   { cpu: "1",  memory: 1Gi }
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
 
 nodeSelector: {}
 tolerations: []

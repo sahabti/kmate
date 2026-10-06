@@ -89,10 +89,31 @@ client gets the latest state, never a backlog).
 | `KMATE_PUBLIC_URL` | e.g. `https://kmate.example.com` (used in OIDC redirects, enrollment commands) |
 | `KMATE_AGENT_ADDR` | advertised agent endpoint `kmate.example.com:9090` |
 | `KMATE_TLS_CERT/KEY` | optional; else `KMATE_INSECURE=true` for dev |
-| `KMATE_OIDC_*` | issuer, client id/secret |
+| `KMATE_OIDC_*` | issuer, client, claim names and group mappings — see [12-oidc.md](12-oidc.md) |
+| `KMATE_LOCAL_LOGIN` | `false` requires SSO; ignored when no OIDC issuer is configured |
 | `KMATE_ADMIN_EMAIL/PASSWORD` | bootstrap admin, created only when no users exist |
 | `KMATE_ADMIN_K8S_USER` | optional Kubernetes username for the bootstrap admin (default: the email) |
 | `KMATE_ADMIN_K8S_GROUPS` | optional comma-separated impersonation groups for the bootstrap admin |
+
+## Authentication endpoints
+
+Plain HTTP rather than RPC, because the OIDC flow is a browser redirect dance.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /auth/config` | none | What the login page should render: `{"localLogin":bool,"oidc":{"enabled":bool,"label":"Sign in with Keycloak","loginUrl":"/auth/oidc/login"}}`. Always served, even with OIDC off. |
+| `GET /auth/oidc/login?redirect=<path>` | none | Starts the authorization-code flow with PKCE. Sets a signed, HttpOnly state cookie holding the nonce, verifier and sanitised post-login path, then redirects to the provider. 404 when OIDC is unconfigured. |
+| `GET /auth/oidc/callback` | state cookie | Verifies state and nonce, exchanges the code, validates the ID token against the provider's JWKS, resolves or provisions the account, then redirects into the app with the session token in the URL **fragment** so it never reaches a server log. |
+
+The redirect URL is rebuilt from `X-Forwarded-Proto` and `X-Forwarded-Host` when
+present. Without that, a gateway terminating TLS produces an `http://` redirect
+that the provider rejects for not matching its registered callback.
+
+Discovery is lazy and retried at most every 30 seconds after a failure. A
+provider that is down never prevents the hub from starting, because local login
+is the way back in.
+
+See [12-oidc.md](12-oidc.md) for provider setup and the full variable list.
 
 ## API surface (client-facing, Connect)
 

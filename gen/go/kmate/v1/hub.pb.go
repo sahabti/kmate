@@ -258,11 +258,14 @@ type User struct {
 	Role  string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"` // admin | operator | viewer
 	// Kubernetes identity used for impersonation. Empty k8s_user means "use email".
 	// OIDC will populate both from token claims in a later phase.
-	K8SUser       string                 `protobuf:"bytes,5,opt,name=k8s_user,json=k8sUser,proto3" json:"k8s_user,omitempty"`
-	K8SGroups     []string               `protobuf:"bytes,6,rep,name=k8s_groups,json=k8sGroups,proto3" json:"k8s_groups,omitempty"`
-	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	K8SUser   string                 `protobuf:"bytes,5,opt,name=k8s_user,json=k8sUser,proto3" json:"k8s_user,omitempty"`
+	K8SGroups []string               `protobuf:"bytes,6,rep,name=k8s_groups,json=k8sGroups,proto3" json:"k8s_groups,omitempty"`
+	Active    bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// oidc marks an account provisioned by an identity provider: it has no local
+	// password, so clients hide password management for it.
+	Oidc          bool `protobuf:"varint,10,opt,name=oidc,proto3" json:"oidc,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -358,6 +361,13 @@ func (x *User) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *User) GetOidc() bool {
+	if x != nil {
+		return x.Oidc
+	}
+	return false
 }
 
 // ClusterGrant gives one user access to one cluster, optionally limited to
@@ -2125,7 +2135,7 @@ const file_kmate_v1_hub_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\"\n" +
 	"\x04user\x18\x02 \x01(\v2\x0e.kmate.v1.UserR\x04user\"\x0f\n" +
 	"\rLogoutRequest\"\x10\n" +
-	"\x0eLogoutResponse\"\x9c\x02\n" +
+	"\x0eLogoutResponse\"\xb0\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
@@ -2138,7 +2148,9 @@ const file_kmate_v1_hub_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xe8\x01\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n" +
+	"\x04oidc\x18\n" +
+	" \x01(\bR\x04oidc\"\xe8\x01\n" +
 	"\fClusterGrant\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +

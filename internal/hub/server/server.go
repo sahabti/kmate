@@ -25,6 +25,7 @@ import (
 	"github.com/kmate-dev/kmate/gen/go/kmate/v1/kmatev1connect"
 	"github.com/kmate-dev/kmate/internal/hub/api"
 	"github.com/kmate-dev/kmate/internal/hub/auth"
+	"github.com/kmate-dev/kmate/internal/hub/oidc"
 	"github.com/kmate-dev/kmate/internal/hub/pf"
 	"github.com/kmate-dev/kmate/internal/hub/registry"
 	"github.com/kmate-dev/kmate/internal/hub/relay"
@@ -44,6 +45,12 @@ type Config struct {
 	TLSCert, TLSKey string
 	CORSOrigins     []string
 	WebDir          string
+
+	// OIDC is optional. When Issuer and ClientID are empty the hub serves
+	// password login only.
+	OIDC       oidc.Config
+	LocalLogin bool
+	JWTSecret  []byte
 }
 
 // Server holds all listeners.
@@ -104,6 +111,18 @@ func New(cfg Config, st *store.Store, a *auth.Authenticator, log *slog.Logger) (
 	wsh := ws.New(a, rl, st, cfg.CORSOrigins, log)
 	wsh.Register(m)
 	pf.New(a, rl, st, !cfg.Insecure, log).Register(m)
+
+	// Authentication options. /auth/config is always served so the login page
+	// knows what to render; OIDC routes 404 when unconfigured.
+	var prov *oidc.Provider
+	if cfg.OIDC.Enabled() {
+		cfg.OIDC.PublicURL = cfg.PublicURL
+		prov = oidc.New(cfg.OIDC, cfg.JWTSecret, log.With("component", "oidc"))
+	}
+	issue := func(u *oidc.DirUser) (string, error) {
+		return a.Issue(&auth.Principal{ID: u.ID, Email: u.Email, Role: u.Role})
+	}
+	oidc.NewHandler(prov, store.OIDCDirectory{S: st}, issue, cfg.LocalLogin, log).Register(m)
 	m.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	m.Handle("/", web.Handler(cfg.WebDir))
 
