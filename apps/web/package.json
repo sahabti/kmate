@@ -31,6 +31,7 @@
     "cn": "^0.4.0",
     "js-yaml": "^4.1.0",
     "lucide-react": "^0.544.0",
+    "monaco-editor": "^0.57.0",
     "pixi.js": "^8.21.0",
     "radix-ui": "^1.6.7",
     "react": "^19.1.0",

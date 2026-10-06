@@ -22,7 +22,7 @@ const CUSTOM = "__custom__";
  *  client -> server: [0x00, ...stdin bytes] | [0xFF, ...JSON {cols,rows}] (resize)
  *  server -> client: [0x01, ...stdout] | [0x02, ...stderr] | [0x03, ...error/exit text]
  */
-export default function ExecTerminal({ clusterId, namespace, pod, containers, canExec = true }: { clusterId: string; namespace: string; pod: string; containers: string[]; canExec?: boolean }) {
+export default function ExecTerminal({ clusterId, namespace, pod, containers, canExec = true, blockedReason }: { clusterId: string; namespace: string; pod: string; containers: string[]; canExec?: boolean; blockedReason?: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -37,7 +37,7 @@ export default function ExecTerminal({ clusterId, namespace, pod, containers, ca
   const command = shell.split(/\s+/).filter(Boolean);
 
   useEffect(() => {
-    if (!ref.current || !canExec) return;
+    if (!ref.current || !canExec || blockedReason) return;
     // Defer the heavy setup one frame: React StrictMode (and fast tab flips)
     // mount → unmount → mount synchronously, and xterm schedules viewport work
     // that throws if the terminal was disposed in between.
@@ -53,7 +53,7 @@ export default function ExecTerminal({ clusterId, namespace, pod, containers, ca
       cleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusterId, namespace, pod, container, shell, gen, canExec, theme]);
+  }, [clusterId, namespace, pod, container, shell, gen, canExec, blockedReason, theme]);
 
   function setup(): () => void {
     const host = ref.current!;
@@ -174,6 +174,21 @@ export default function ExecTerminal({ clusterId, namespace, pod, containers, ca
           <CalloutTitle>Terminal disabled on this cluster</CalloutTitle>
           <CalloutDescription>
             The agent was installed without exec permissions. Re-install with <code className="font-mono">--set rbac.exec=true</code> (Helm) or <code className="font-mono">KMATE_CAN_EXEC=true</code> (local agent) to enable pods/exec.
+          </CalloutDescription>
+        </Callout>
+      </div>
+    );
+  }
+
+  // The agent can exec, but this user may not: the API server answered for them.
+  if (blockedReason) {
+    return (
+      <div className="p-4">
+        <Callout variant="warning">
+          <CalloutTitle>You cannot open a terminal in this pod</CalloutTitle>
+          <CalloutDescription>
+            <span className="block font-mono text-[11px] break-words">{blockedReason}</span>
+            <span className="mt-1 block text-[11px] opacity-80">Ask a cluster administrator for permission to create pods/exec in this namespace.</span>
           </CalloutDescription>
         </Callout>
       </div>

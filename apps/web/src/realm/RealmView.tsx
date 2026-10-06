@@ -5,13 +5,14 @@ import "@fontsource/pixelify-sans/400.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ExternalLink, Maximize2, Minus, Plus, Castle, ChevronDown, ChevronUp } from "lucide-react";
-import { useCapabilities, useCatalog, useWatch } from "@/api/hooks";
+import { useAllowedNamespaces, useCapabilities, useCatalog, useWatch } from "@/api/hooks";
 import { useUI } from "@/store/ui";
 import { useDrawer } from "@/store/drawer";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Callout } from "@/components/callout";
+import { DeniedState } from "@/components/status";
 import { PixiCanvas, type PixiHandle } from "./PixiCanvas";
 import { loadTheme, loadThemesIndex, type Theme, type ThemesIndex } from "./theme";
 import { useRealmTheme } from "@/store/realmTheme";
@@ -39,18 +40,34 @@ export function RealmViewPage() {
   // Live data. Every kind is a live watch; they all share one multiplexed WebSocket per
   // cluster (src/api/watchMux.ts), so the count of watches does not matter. columnsOnly
   // keeps payloads small and secrets are names only.
-  const pods = useWatch(clusterId, g("", "v1", "pods"), "", { columnsOnly: true });
+  // A namespace-limited user may not watch all namespaces, so the realm narrows
+  // to the namespace they hold and says which parts of the cluster are hidden.
+  const { namespaces: allowedNs, restricted } = useAllowedNamespaces(clusterId);
+  const scope = restricted ? (allowedNs[0] ?? "") : "";
+
+  const pods = useWatch(clusterId, g("", "v1", "pods"), scope, { columnsOnly: true });
   const nodes = useWatch(clusterId, g("", "v1", "nodes"), "", { columnsOnly: true });
-  const deployments = useWatch(clusterId, g("apps", "v1", "deployments"), "", { columnsOnly: true });
-  const statefulsets = useWatch(clusterId, g("apps", "v1", "statefulsets"), "", { columnsOnly: true });
-  const daemonsets = useWatch(clusterId, g("apps", "v1", "daemonsets"), "", { columnsOnly: true });
-  const jobs = useWatch(clusterId, g("batch", "v1", "jobs"), "", { columnsOnly: true });
-  const cronjobs = useWatch(clusterId, g("batch", "v1", "cronjobs"), "", { columnsOnly: true });
-  const services = useWatch(clusterId, g("", "v1", "services"), "", { columnsOnly: true });
-  const pvcs = useWatch(clusterId, g("", "v1", "persistentvolumeclaims"), "", { columnsOnly: true });
-  const configmaps = useWatch(clusterId, g("", "v1", "configmaps"), "", { columnsOnly: true });
-  const secrets = useWatch(clusterId, g("", "v1", "secrets"), "", { columnsOnly: true });
-  const { catalog } = useCatalog(clusterId);
+  const deployments = useWatch(clusterId, g("apps", "v1", "deployments"), scope, { columnsOnly: true });
+  const statefulsets = useWatch(clusterId, g("apps", "v1", "statefulsets"), scope, { columnsOnly: true });
+  const daemonsets = useWatch(clusterId, g("apps", "v1", "daemonsets"), scope, { columnsOnly: true });
+  const jobs = useWatch(clusterId, g("batch", "v1", "jobs"), scope, { columnsOnly: true });
+  const cronjobs = useWatch(clusterId, g("batch", "v1", "cronjobs"), scope, { columnsOnly: true });
+  const services = useWatch(clusterId, g("", "v1", "services"), scope, { columnsOnly: true });
+  const pvcs = useWatch(clusterId, g("", "v1", "persistentvolumeclaims"), scope, { columnsOnly: true });
+  const configmaps = useWatch(clusterId, g("", "v1", "configmaps"), scope, { columnsOnly: true });
+  const secrets = useWatch(clusterId, g("", "v1", "secrets"), scope, { columnsOnly: true });
+  const { catalog, denial: catalogDenial } = useCatalog(clusterId);
+
+  // Nodes are cluster-scoped, so a restricted user cannot see the islands; pods
+  // are the realm's backbone, so losing those means there is nothing to draw.
+  const watches = [
+    { label: "pods", w: pods }, { label: "nodes", w: nodes }, { label: "deployments", w: deployments },
+    { label: "statefulsets", w: statefulsets }, { label: "daemonsets", w: daemonsets }, { label: "jobs", w: jobs },
+    { label: "cronjobs", w: cronjobs }, { label: "services", w: services }, { label: "persistent volume claims", w: pvcs },
+    { label: "config maps", w: configmaps }, { label: "secrets", w: secrets },
+  ];
+  const withheld = watches.filter((x) => x.w.denial).map((x) => x.label);
+  const blocking = pods.denial ?? catalogDenial ?? null;
 
   const catalogLite = useMemo<CatalogLite[]>(
     () => (catalog?.entries ?? []).map((e) => ({ namespace: e.namespace, name: e.name, health: e.health as number, exposures: e.exposures.map((x) => ({ kind: x.kind, url: x.url, host: x.host, tls: x.tls })) })),
@@ -209,8 +226,25 @@ export function RealmViewPage() {
   const zoomOut = () => handleRef.current?.camera.zoomOut();
   const reset = () => { const h = handleRef.current; if (h && world) fitWorld(h, world); };
 
+  // Nothing to draw: say why rather than showing an empty sea.
+  if (blocking) {
+    return (
+      <div className="h-[calc(100vh-3.5rem)] w-full overflow-auto p-4">
+        <DeniedState denial={blocking} what="see this cluster's realm" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden">
+      {withheld.length > 0 && (
+        <div className="absolute inset-x-0 top-0 z-10 p-4">
+          <Callout variant="warning" title="Part of this cluster is hidden">
+            You cannot see {withheld.join(", ")}, so the realm is incomplete.
+            {restricted && allowedNs.length > 0 && <> Your access covers {allowedNs.join(", ")}.</>}
+          </Callout>
+        </div>
+      )}
       {index && !index.themes.some((t) => t.available) && (
         <div className="absolute inset-x-0 top-0 z-10 p-4">
           <Callout variant="warning" title="No Realm theme available">

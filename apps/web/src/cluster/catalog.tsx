@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { Box, Database, ExternalLink, Globe, Lock, Package, Search, Server, ShoppingCart, Workflow, Zap, type LucideIcon } from "lucide-react";
 import { useCatalog } from "@/api/hooks";
 import { StatCard, StatCardLabel, StatCardValue } from "@/components/stat-card";
-import { EmptyState, ErrorCallout, Loading } from "@/components/status";
+import { DeniedState, EmptyState, ErrorCallout, Loading } from "@/components/status";
 import { SimpleTable, type Column } from "@/components/Table";
 import { Dot, ToneBadge, type Tone } from "@/components/tone";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +65,7 @@ function exposureLabel(e: Exposure): string {
 type HealthFilter = "all" | "healthy" | "degraded" | "down";
 
 function useFilteredCatalog(clusterId: string) {
-  const { catalog, error } = useCatalog(clusterId);
+  const { catalog, error, denial } = useCatalog(clusterId);
   const namespace = useUI((s) => s.namespace);
   const search = useUI((s) => s.search);
   const [health, setHealth] = useState<HealthFilter>("all");
@@ -101,7 +101,7 @@ function useFilteredCatalog(clusterId: string) {
     };
   }, [catalog, showSystem, namespace]);
 
-  return { catalog, error, entries, stats, filters: { health, setHealth, exposedOnly, setExposedOnly, showSystem, setShowSystem, q, setQ } };
+  return { catalog, error, denial, entries, stats, filters: { health, setHealth, exposedOnly, setExposedOnly, showSystem, setShowSystem, q, setQ } };
 }
 
 function Filters({ f }: { f: ReturnType<typeof useFilteredCatalog>["filters"] }) {
@@ -178,7 +178,7 @@ function PageHeader({ title, version, f }: { title: string; version?: bigint; f:
 /* ---------- Dashboard (card grid) ---------- */
 export function OverviewPage() {
   const { clusterId } = useParams({ strict: false }) as { clusterId: string };
-  const { catalog, error, entries, stats, filters } = useFilteredCatalog(clusterId);
+  const { catalog, error, denial, entries, stats, filters } = useFilteredCatalog(clusterId);
   const open = useDrawer((s) => s.open);
 
   const groups = useMemo(() => {
@@ -194,9 +194,10 @@ export function OverviewPage() {
   return (
     <div className="h-full space-y-4 overflow-y-auto p-3 md:p-5">
       <PageHeader title="Service Catalog" version={catalog?.version} f={filters} />
-      <ErrorCallout message={error} />
+      {!denial && <ErrorCallout message={error} />}
+      {denial && <DeniedState denial={denial} what="see the Service Catalog for this cluster" />}
       <StatTiles s={stats} />
-      {!catalog && !error && <Loading label="Waiting for catalog from agent…" />}
+      {!catalog && !error && !denial && <Loading label="Waiting for catalog from agent…" />}
       {catalog && entries.length === 0 && <EmptyState icon={<Box />} title="No services match" hint="Adjust the namespace or filters, or enable 'Show system'." />}
       {groups.map(([group, list]) => (
         <section key={group} className="space-y-2">
@@ -311,7 +312,7 @@ function ServiceCard({ e, onOpen }: { e: CatalogEntry; onOpen: () => void }) {
 /* ---------- Dense table ---------- */
 export function CatalogTablePage() {
   const { clusterId } = useParams({ strict: false }) as { clusterId: string };
-  const { catalog, error, entries, stats, filters } = useFilteredCatalog(clusterId);
+  const { catalog, error, denial, entries, stats, filters } = useFilteredCatalog(clusterId);
   const open = useDrawer((s) => s.open);
   const cols: Column<CatalogEntry>[] = [
     { id: "name", header: "Service", cell: (e) => <span className="font-medium">{e.name}</span> },
@@ -366,9 +367,10 @@ export function CatalogTablePage() {
   return (
     <div className="h-full space-y-4 overflow-y-auto p-3 md:p-5">
       <PageHeader title="Service Catalog" version={catalog?.version} f={filters} />
-      <ErrorCallout message={error} />
+      {!denial && <ErrorCallout message={error} />}
+      {denial && <DeniedState denial={denial} what="see the Service Catalog for this cluster" />}
       <StatTiles s={stats} />
-      {!catalog && !error && <Loading label="Waiting for catalog from agent…" />}
+      {!catalog && !error && !denial && <Loading label="Waiting for catalog from agent…" />}
       {catalog && (
         <SimpleTable
           rows={entries}

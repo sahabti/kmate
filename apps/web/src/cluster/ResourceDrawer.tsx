@@ -1,9 +1,10 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ban, CircleCheck, MoreHorizontal, Network, RefreshCw, Scaling, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cluster, errorMessage } from "@/api/client";
-import { useCapabilities, useEventsFor, useObject, usePodsOnNode } from "@/api/hooks";
+import { denialFromReason } from "@/lib/denial";
+import { useAccessReview, useCapabilities, useEventsFor, useObject, usePodsOnNode, type AccessQuestion } from "@/api/hooks";
 import { LogsView } from "@/cluster/Logs";
 import { PortForwardDialog } from "@/cluster/PortForward";
 import { Sparkline } from "@/components/Sparkline";
@@ -63,6 +64,20 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
   const scalable = target?.gvr.resource === "deployments" || target?.gvr.resource === "statefulsets" || target?.gvr.resource === "replicasets";
   const restartable = target?.gvr.resource === "deployments" || target?.gvr.resource === "statefulsets" || target?.gvr.resource === "daemonsets";
 
+  // Ask the API server what this user may really do, so buttons reflect the
+  // cluster's own RBAC and not just how the agent was installed.
+  const questions = useMemo<AccessQuestion[]>(() => {
+    if (!target) return [];
+    const base = { group: target.gvr.group, version: target.gvr.version, resource: target.gvr.resource, namespace: target.namespace, name: target.name };
+    const qs: AccessQuestion[] = [{ ...base, verb: "patch" }, { ...base, verb: "delete" }];
+    if (target.gvr.resource === "pods") {
+      qs.push({ group: "", version: "v1", resource: "pods", subresource: "exec", namespace: target.namespace, name: target.name, verb: "create" });
+      qs.push({ group: "", version: "v1", resource: "pods", subresource: "portforward", namespace: target.namespace, name: target.name, verb: "create" });
+    }
+    return qs;
+  }, [target?.gvr.group, target?.gvr.version, target?.gvr.resource, target?.namespace, target?.name]);
+  const review = useAccessReview(clusterId, questions, !!target);
+
   useEffect(() => {
     setTab("summary");
     setErr(null);
@@ -109,13 +124,57 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
         patch: { ref, patchType: "application/merge-patch+json", patch: new TextEncoder().encode(JSON.stringify({ spec: { unschedulable: on ? true : null } })) },
       }),
     );
-  const readOnlyHint = capsKnown ? "Agent installed read-only (rbac.write=false)" : "Checking agent capabilities…";
-  const WriteItem = ({ children, onSelect, variant }: { children: React.ReactNode; onSelect: () => void; variant?: "destructive" }) =>
-    canWrite ? (
-      <DropdownMenuItem variant={variant} onSelect={onSelect}>
-        {children}
+  const readOnlyHint = capsKnown ? "The agent is installed read-only (rbac.write=false)" : "Checking agent capabilities…";
+
+  /**
+   * Why a verb is unavailable, or null when it is allowed. The agent capability
+   * is checked first because it blocks everyone; then the user's own answer from
+   * the API server.
+   */
+  const blockedReason = (verb: string, subresource?: string): string | null => {
+    if (!target) return null;
+    if (!canWrite && verb !== "create") return readOnlyHint;
+    const ans = review.can({
+      group: subresource ? "" : target.gvr.group,
+      version: subresource ? "v1" : target.gvr.version,
+      resource: subresource ? "pods" : target.gvr.resource,
+      subresource,
+      namespace: target.namespace,
+      name: target.name,
+      verb,
+    });
+    if (!ans) return null; // unknown yet: do not disable on a guess
+    if (ans.allowed) return null;
+    const why = ans.reason?.trim() || "the cluster's RBAC does not allow it";
+    // Name the layer that actually refused, so the sentence matches the reason.
+    const d = denialFromReason(why);
+    if (d === "kmate") return `You cannot ${verb} this: ${why}`;
+    if (ans.shared) return `Not allowed: ${why}`;
+    return `Your Kubernetes account cannot ${verb} this: ${why}`;
+  };
+
+  /** Port-forward is a create on pods/portforward, and needs no write capability. */
+  const PortForwardItem = () => {
+    const blocked = isPod ? blockedReason("create", "portforward") : null;
+    const item = (
+      <DropdownMenuItem disabled={!obj || !!blocked} onSelect={() => setPending({ kind: "pf" })}>
+        <Network /> Port-forward…
       </DropdownMenuItem>
-    ) : (
+    );
+    if (!blocked) return item;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>{item}</div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs">{blocked}</TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  const WriteItem = ({ children, onSelect, variant, verb = "patch", subresource }: { children: React.ReactNode; onSelect: () => void; variant?: "destructive"; verb?: string; subresource?: string }) => {
+    const blocked = blockedReason(verb, subresource);
+    return blocked ? (
       <Tooltip>
         <TooltipTrigger asChild>
           <div>
@@ -124,9 +183,14 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
             </DropdownMenuItem>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="left">{readOnlyHint}</TooltipContent>
+        <TooltipContent side="left" className="max-w-xs">{blocked}</TooltipContent>
       </Tooltip>
+    ) : (
+      <DropdownMenuItem variant={variant} onSelect={onSelect}>
+        {children}
+      </DropdownMenuItem>
     );
+  };
 
   return (
     <Sheet open onOpenChange={(o) => !o && close()}>
@@ -146,9 +210,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
               <DropdownMenuContent align="end" className="min-w-52 *:whitespace-nowrap">
                 {(isPod || isService) && (
                   <>
-                    <DropdownMenuItem onSelect={() => setPending({ kind: "pf" })} disabled={!obj}>
-                      <Network /> Port-forward…
-                    </DropdownMenuItem>
+                    <PortForwardItem />
                     <DropdownMenuSeparator />
                   </>
                 )}
@@ -178,7 +240,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
                     </WriteItem>
                   ))}
                 {(scalable || restartable || isNode) && <DropdownMenuSeparator />}
-                <WriteItem variant="destructive" onSelect={() => setPending({ kind: "delete" })}>
+                <WriteItem variant="destructive" verb="delete" onSelect={() => setPending({ kind: "delete" })}>
                   <Trash2 /> Delete
                 </WriteItem>
               </DropdownMenuContent>
@@ -228,7 +290,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
             <TabsContent value="terminal" className="min-h-0 flex-1 overflow-hidden">
               {obj && (
                 <Suspense fallback={<Loading className="p-4" />}>
-                  <ExecTerminal clusterId={clusterId} namespace={target.namespace} pod={target.name} containers={containersOf(obj)} canExec={canExec} />
+                  <ExecTerminal clusterId={clusterId} namespace={target.namespace} pod={target.name} containers={containersOf(obj)} canExec={canExec} blockedReason={canExec ? blockedReason("create", "exec") : null} />
                 </Suspense>
               )}
             </TabsContent>

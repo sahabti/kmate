@@ -4,7 +4,7 @@ import { useWatch } from "@/api/hooks";
 import { useMetricsPoll } from "@/api/metrics";
 import { columnsFor } from "@/cluster/columns";
 import { labelForResource } from "@/cluster/nav";
-import { ErrorCallout, Loading } from "@/components/status";
+import { DeniedState, ErrorCallout, Loading } from "@/components/status";
 import { VirtualTable } from "@/components/Table";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,7 +19,7 @@ export function ResourceListPage() {
   const namespace = useUI((s) => s.namespace);
   const search = useUI((s) => s.search);
   const open = useDrawer((s) => s.open);
-  const { items, synced, error } = useWatch(p.clusterId, gvr, namespaced ? namespace : "", { columnsOnly: true });
+  const { items, synced, error, denial } = useWatch(p.clusterId, gvr, namespaced ? namespace : "", { columnsOnly: true });
   const metricsKind = gvr.resource === "pods" ? "pods" : gvr.resource === "nodes" ? "nodes" : null;
   const metricsUnavailable = useMetricsPoll(p.clusterId, metricsKind ?? "pods", metricsKind === "pods" ? namespace : "", metricsKind !== null);
 
@@ -57,15 +57,19 @@ export function ResourceListPage() {
           </Tooltip>
         )}
       </div>
-      <ErrorCallout message={error} />
+      {!denial && <ErrorCallout message={error} />}
       <div className="min-h-0 flex-1">
-        <VirtualTable
-          rows={rows}
-          columns={columns}
-          rowKey={rowKey}
-          onRowClick={(o) => open({ gvr, namespace: o.metadata?.namespace ?? "", name: o.metadata?.name ?? "", kind: o.kind })}
-          emptyText={synced ? "No resources found" : "Loading…"}
-        />
+        {denial ? (
+          <DeniedState denial={denial} what={`list ${labelForResource(gvr.resource)}${namespaced && namespace ? ` in ${namespace}` : ""}`} />
+        ) : (
+          <VirtualTable
+            rows={rows}
+            columns={columns}
+            rowKey={rowKey}
+            onRowClick={(o) => open({ gvr, namespace: o.metadata?.namespace ?? "", name: o.metadata?.name ?? "", kind: o.kind })}
+            emptyText={synced ? "No resources found" : "Loading…"}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cluster, hub, errorMessage } from "./client";
 import * as watchMux from "./watchMux";
 import { useWatchStore } from "@/store/watch";
+import { denialFromError, denialFromWire, type Denial } from "@/lib/denial";
 import { decodeObject, gvrKey, type GVRKey, type KObj } from "@/lib/k8s";
 import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import { EventType } from "@/gen/kmate/v1/agent_pb";
 import { CatalogSchema, type Catalog } from "@/gen/kmate/v1/catalog_pb";
-import { ClusterEventSchema, type Cluster } from "@/gen/kmate/v1/hub_pb";
+import { ClusterEventSchema, type Cluster, type ClusterGrant } from "@/gen/kmate/v1/hub_pb";
 
 const RETRY_MS = 2000;
+
+/**
+ * Polling interval that stops once the request is refused. Re-asking a question
+ * the hub or the API server already answered with "no" only adds console noise.
+ */
+function pollUnlessDenied(ms: number) {
+  // `any` keeps TanStack Query's data-type inference intact at each call site.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (q: any) => (denialFromError(q?.state?.error) ? false : ms);
+}
+
 
 /**
  * Live watch of a resource. Shares one stream per (cluster, gvr, namespace)
@@ -61,16 +73,19 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
           case "DELETED":
             if (ev.object) store.getState().remove(key, ev.object.metadata?.uid ?? `${ev.object.metadata?.namespace}/${ev.object.metadata?.name}`);
             return;
-          case "ERROR":
-            store.getState().setError(key, ev.error?.message ?? "watch error");
-            if (watchMux.shouldFallback(clusterId)) {
+          case "ERROR": {
+            const denial = denialFromWire(ev.error);
+            store.getState().setError(key, ev.error?.message ?? "watch error", denial);
+            // A denial is a final answer; only transport trouble falls back.
+            if (!denial && watchMux.shouldFallback(clusterId)) {
               unsubscribe?.();
               unsubscribe = null;
               void runConnect();
             }
             return;
+          }
           case "CLOSED":
-            if (ev.error) store.getState().setError(key, ev.error.message);
+            if (ev.error) store.getState().setError(key, ev.error.message, denialFromWire(ev.error));
             return;
         }
       });
@@ -113,7 +128,9 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
           }
         } catch (e) {
           if (ac.signal.aborted) return;
-          store.getState().setError(key, errorMessage(e));
+          const denial = denialFromError(e);
+          store.getState().setError(key, errorMessage(e), denial);
+          if (denial) return; // refused: stop asking
         }
         if (stopped) return;
         await new Promise((r) => setTimeout(r, RETRY_MS));
@@ -142,15 +159,17 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
     });
   }, [entry]);
 
-  return { items, synced: entry?.synced ?? false, error: entry?.error ?? null };
+  return { items, synced: entry?.synced ?? false, error: entry?.error ?? null, denial: entry?.denial ?? null };
 }
 
 /** Live Service Catalog for a cluster (multiplexed socket; Connect stream as fallback). */
 export function useCatalog(clusterId: string) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [denial, setDenial] = useState<Denial | null>(null);
   useEffect(() => {
     if (!clusterId) return;
+    setDenial(null);
     const ac = new AbortController();
     let stopped = false;
     let unsubscribe: (() => void) | null = null;
@@ -160,9 +179,11 @@ export function useCatalog(clusterId: string) {
         if (ev.type === "CATALOG" && ev.catalog) {
           try { setCatalog(fromJson(CatalogSchema, ev.catalog as JsonValue, { ignoreUnknownFields: true })); setError(null); } catch (e) { setError(errorMessage(e)); }
         } else if (ev.type === "ERROR") {
+          const d = denialFromWire(ev.error);
           setError(ev.error?.message ?? "catalog error");
-          if (watchMux.shouldFallback(clusterId)) { unsubscribe?.(); unsubscribe = null; void run(); }
-        } else if (ev.type === "CLOSED" && ev.error) setError(ev.error.message);
+          setDenial(d);
+          if (!d && watchMux.shouldFallback(clusterId)) { unsubscribe?.(); unsubscribe = null; void run(); }
+        } else if (ev.type === "CLOSED" && ev.error) { setError(ev.error.message); setDenial(denialFromWire(ev.error)); }
       });
     };
     const run = async () => {
@@ -171,10 +192,14 @@ export function useCatalog(clusterId: string) {
           for await (const c of cluster.watchCatalog({ clusterId }, { signal: ac.signal })) {
             setCatalog(c);
             setError(null);
+            setDenial(null);
           }
         } catch (e) {
           if (ac.signal.aborted) return;
+          const d = denialFromError(e);
           setError(errorMessage(e));
+          setDenial(d);
+          if (d) return;
         }
         if (stopped) return;
         await new Promise((r) => setTimeout(r, RETRY_MS));
@@ -187,7 +212,7 @@ export function useCatalog(clusterId: string) {
       ac.abort();
     };
   }, [clusterId]);
-  return { catalog, error };
+  return { catalog, error, denial };
 }
 
 /** Live list of clusters registered on the hub (multiplexed socket; Connect stream as fallback). */
@@ -261,7 +286,7 @@ export function useCluster(clusterId: string) {
   return useQuery({
     queryKey: ["cluster", clusterId],
     queryFn: async () => (await hub.getCluster({ id: clusterId })).cluster ?? null,
-    refetchInterval: 10_000,
+    refetchInterval: pollUnlessDenied(10_000),
     enabled: !!clusterId,
   });
 }
@@ -298,7 +323,7 @@ export function usePodsOnNode(clusterId: string, node: string, enabled = true) {
       return res.items.map((o) => decodeObject(o.json)).filter((p) => p.spec?.nodeName === node);
     },
     enabled: enabled && !!clusterId && !!node,
-    refetchInterval: 15_000,
+    refetchInterval: pollUnlessDenied(15_000),
   });
 }
 
@@ -331,7 +356,7 @@ export function useAuditEvents(clusterId: string, limit = 200) {
     queryKey: ["audit", clusterId, limit],
     queryFn: async () => (await hub.listAuditEvents({ clusterId, limit })).events,
     enabled: !!clusterId,
-    refetchInterval: 15_000,
+    refetchInterval: pollUnlessDenied(15_000),
   });
 }
 
@@ -353,7 +378,7 @@ export function useObject(clusterId: string, gvr: GVRKey | null, namespace: stri
       return res.object ? decodeObject(res.object.json) : null;
     },
     enabled: !!clusterId && !!gvr && !!name,
-    refetchInterval: 15_000,
+    refetchInterval: pollUnlessDenied(15_000),
   });
 }
 
@@ -376,8 +401,150 @@ export function useEventsFor(clusterId: string, namespace: string, name: string,
         .sort((a, b) => String(b.lastTimestamp ?? b.eventTime ?? "").localeCompare(String(a.lastTimestamp ?? a.eventTime ?? "")));
     },
     enabled: enabled && !!clusterId && !!name,
-    refetchInterval: 10_000,
+    refetchInterval: pollUnlessDenied(10_000),
   });
+}
+
+/* ---------------- access review ---------------- */
+
+/** One "can I do X" question, mirroring authorization.k8s.io ResourceAttributes. */
+export interface AccessQuestion {
+  group?: string;
+  version?: string;
+  resource: string;
+  subresource?: string;
+  namespace?: string;
+  name?: string;
+  verb: string;
+}
+
+export interface AccessAnswer {
+  allowed: boolean;
+  denied: boolean;
+  reason: string;
+  /** True when the agent cannot impersonate, so the answer is about the agent, not you. */
+  shared: boolean;
+}
+
+export function accessKey(q: AccessQuestion): string {
+  return [q.group ?? "", q.version ?? "", q.resource, q.subresource ?? "", q.namespace ?? "", q.name ?? "", q.verb].join("|");
+}
+
+/**
+ * Asks the cluster what the signed-in user may actually do.
+ *
+ * The agent answers with a SelfSubjectAccessReview while impersonating, which is
+ * the same question `kubectl auth can-i` asks, so buttons reflect real Kubernetes
+ * permissions rather than only what the agent was installed to allow.
+ */
+export function useAccessReview(clusterId: string, questions: AccessQuestion[], enabled = true) {
+  const keys = questions.map(accessKey).join("\n");
+  const q = useQuery({
+    queryKey: ["accessReview", clusterId, keys],
+    queryFn: async () => {
+      const res = await cluster.accessReview({
+        clusterId,
+        review: {
+          items: questions.map((x) => ({
+            group: x.group ?? "", version: x.version ?? "", resource: x.resource,
+            subresource: x.subresource ?? "", namespace: x.namespace ?? "", name: x.name ?? "", verb: x.verb,
+          })),
+        },
+      });
+      const out = new Map<string, AccessAnswer>();
+      res.results.forEach((r, i) => {
+        const question = questions[i];
+        if (!question) return;
+        out.set(accessKey(question), {
+          allowed: r.allowed,
+          denied: r.denied,
+          reason: r.reason,
+          shared: r.reason.startsWith("shared identity"),
+        });
+      });
+      return out;
+    },
+    enabled: enabled && !!clusterId && questions.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const answers = q.data;
+  return useMemo(
+    () => ({
+      /** Undefined while unknown, so callers can avoid disabling a button prematurely. */
+      can(question: AccessQuestion): AccessAnswer | undefined {
+        return answers?.get(accessKey(question));
+      },
+      loaded: !!answers,
+      error: q.error ? errorMessage(q.error) : null,
+    }),
+    [answers, q.error],
+  );
+}
+
+/* ---------------- users, grants and your own access ---------------- */
+
+export function useUsers(enabled = true) {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: async () => (await hub.listUsers({})).users,
+    enabled,
+    retry: false,
+  });
+}
+
+/** Grants for a user; an empty userId means your own. */
+export function useGrants(userId = "", enabled = true) {
+  return useQuery({
+    queryKey: ["grants", userId],
+    queryFn: async () => (await hub.listGrants({ userId })).grants,
+    enabled,
+    retry: false,
+  });
+}
+
+/** Invalidate every user/grant query after an administrative change. */
+export function useRefreshUsers() {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: ["users"] });
+    void qc.invalidateQueries({ queryKey: ["grants"] });
+  };
+}
+
+/**
+ * Namespaces the user may select on a cluster.
+ *
+ * A namespace-limited user cannot list the cluster-scoped `namespaces` resource,
+ * so falling back to their own grant keeps the picker useful instead of empty.
+ * `restricted` means "all namespaces" is not an option for this user.
+ */
+export function useAllowedNamespaces(clusterId: string) {
+  const watch = useWatch(clusterId, { group: "", version: "v1", resource: "namespaces" }, "", { columnsOnly: true });
+  const grants = useGrants("", !!clusterId);
+  const granted = useMemo(() => {
+    const g = (grants.data ?? []).find((x: ClusterGrant) => x.clusterId === clusterId);
+    return g?.namespaces ?? [];
+  }, [grants.data, clusterId]);
+
+  const watched = useMemo(
+    () => watch.items.map((n) => n.metadata?.name ?? "").filter(Boolean).sort(),
+    [watch.items],
+  );
+
+  const restricted = granted.length > 0;
+  const namespaces = useMemo(() => {
+    if (restricted) {
+      // Prefer the live list intersected with the grant, so names stay accurate.
+      const live = new Set(watched);
+      const inter = granted.filter((n) => live.has(n));
+      return (inter.length ? inter : [...granted]).sort();
+    }
+    return watched;
+  }, [restricted, granted, watched]);
+
+  return { namespaces, restricted, denial: watch.denial };
 }
 
 /** Utility for stable AbortControllers in imperative stream consumers. */

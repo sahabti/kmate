@@ -61,9 +61,10 @@ discovery, logs, exec, port-forward, YAML apply, Helm, metrics, audit log, Realm
 
 Not done yet, tracked in [docs/08-roadmap.md](docs/08-roadmap.md):
 
-- **Security hardening (phase 5).** Single local admin account today. No OIDC, no
-  per-user Kubernetes RBAC via impersonation, and the agent authenticates to the hub
-  with a bearer token rather than mTLS. **Deploy it on a private network for now.**
+- **Security hardening (phase 5).** Multi-user RBAC and OIDC single sign-on are in,
+  with per-user Kubernetes RBAC through impersonation. Still missing: mutual TLS
+  between agent and hub, which authenticate with a bearer token today.
+  **Deploy it on a private network for now.**
 - Desktop and mobile shells. The UI is responsive and the architecture is ready,
   but the Tauri shells are not built.
 - Postgres and a multi-replica hub. SQLite and a single replica today.
@@ -131,6 +132,10 @@ git-ignored. Pick the theme from the legend panel in the Realm view; it switches
 
 ## Security
 
+- **Single sign-on** with any standards-compliant OIDC provider (Keycloak, Okta,
+  Authentik, Entra, Google, Dex). Your provider's groups become the Kubernetes
+  groups the agent impersonates, so your existing RoleBindings stay in charge.
+  See [docs/12-oidc.md](docs/12-oidc.md).
 - The agent's ClusterRole is **read-only** unless you opt in with `rbac.write`,
   `rbac.exec` or `rbac.impersonate`.
 - The hub never stores kubeconfigs or cluster credentials.

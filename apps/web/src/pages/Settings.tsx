@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, LogOut, Moon, Sun } from "lucide-react";
-import { hub } from "@/api/client";
+import { ArrowLeft, LogOut, Moon, Sun, Users as UsersIcon } from "lucide-react";
+import { toast } from "sonner";
+import { hub, errorMessage } from "@/api/client";
+import { useGrants } from "@/api/hooks";
+import { ErrorCallout, Loading } from "@/components/status";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { platform } from "@/platform";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
@@ -16,6 +21,8 @@ export function SettingsPage() {
   const clear = useSession((s) => s.clear);
   const { theme, setTheme } = useTheme();
   const nav = useNavigate();
+  const grants = useGrants("");
+  const isAdmin = user?.role === "admin";
 
   const logout = async () => {
     try {
@@ -70,6 +77,66 @@ export function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Your cluster access</CardTitle>
+          <CardDescription>
+            {isAdmin
+              ? "You are a KMate administrator, so every cluster is visible to you. What you may change in a cluster is still decided by that cluster's own RBAC."
+              : "What KMate lets you reach. Inside a cluster, its own RBAC decides what you may actually do."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {grants.isLoading && <Loading label="Loading your access…" />}
+          <ErrorCallout message={grants.error ? errorMessage(grants.error) : null} />
+          {grants.data && grants.data.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              {isAdmin ? "No explicit grants; administrator access covers every cluster." : "No cluster access yet. Ask an administrator for a grant."}
+            </p>
+          )}
+          {grants.data && grants.data.length > 0 && (
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cluster</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Namespaces</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grants.data.map((g) => (
+                  <TableRow key={g.id}>
+                    <TableCell className="font-medium">{g.clusterName || g.clusterId}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-md">{g.role}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px]">{g.namespaces.length ? g.namespaces.join(", ") : "all namespaces"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <ChangePassword />
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Administration</CardTitle>
+            <CardDescription>Accounts, roles and which clusters each person may reach.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/settings/users">
+                <UsersIcon /> Manage users
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
           <CardTitle>Appearance</CardTitle>
           <CardDescription>Theme is stored on this device.</CardDescription>
         </CardHeader>
@@ -83,5 +150,53 @@ export function SettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function ChangePassword() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await hub.setPassword({ currentPassword: current, newPassword: next });
+      toast.success("Password changed");
+      setCurrent("");
+      setNext("");
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Password</CardTitle>
+        <CardDescription>Change the password you use to sign in to this hub.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Current password</Label>
+            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">New password</Label>
+            <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground">At least 8 characters.</p>
+        <ErrorCallout message={err} title="Could not change the password" />
+        <Button size="sm" onClick={() => void submit()} disabled={busy || !current || next.length < 8}>
+          Change password
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

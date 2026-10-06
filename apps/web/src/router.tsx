@@ -3,6 +3,7 @@ import { useSession } from "@/store/session";
 import { LoginPage } from "@/pages/Login";
 import { ClustersPage } from "@/pages/Clusters";
 import { SettingsPage } from "@/pages/Settings";
+import { UsersPage } from "@/pages/Users";
 import { ClusterLayout } from "@/cluster/Layout";
 import { OverviewPage, CatalogTablePage } from "@/cluster/catalog";
 import { ResourceListPage } from "@/cluster/ResourceList";
@@ -43,6 +44,7 @@ const loginRoute = createRoute({
 
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: ClustersPage, beforeLoad: requireAuth });
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/settings", component: SettingsPage, beforeLoad: requireAuth });
+const usersRoute = createRoute({ getParentRoute: () => rootRoute, path: "/settings/users", component: UsersPage, beforeLoad: requireAuth });
 
 const clusterRoute = createRoute({ getParentRoute: () => rootRoute, path: "/c/$clusterId", component: ClusterLayout, beforeLoad: requireAuth });
 const overviewRoute = createRoute({ getParentRoute: () => clusterRoute, path: "/", component: OverviewPage });
@@ -58,6 +60,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
   settingsRoute,
+  usersRoute,
   clusterRoute.addChildren([overviewRoute, catalogRoute, resourceRoute, helmRoute, crdsRoute, auditRoute, realmRoute, realmGalleryRoute]),
 ]);
 

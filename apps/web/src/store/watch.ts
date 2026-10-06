@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Denial } from "@/lib/denial";
 import type { KObj } from "@/lib/k8s";
 
 /**
@@ -9,6 +10,8 @@ interface WatchEntry {
   objects: Map<string, KObj>;
   synced: boolean;
   error: string | null;
+  /** Set when the watch was refused, so views can explain instead of showing nothing. */
+  denial: Denial | null;
   refs: number;
 }
 
@@ -20,11 +23,11 @@ interface WatchState {
   remove(key: string, uid: string): void;
   bulk(key: string, objs: KObj[]): void;
   setSynced(key: string, synced: boolean): void;
-  setError(key: string, error: string | null): void;
+  setError(key: string, error: string | null, denial?: Denial | null): void;
   reset(key: string): void;
 }
 
-const empty = (): WatchEntry => ({ objects: new Map(), synced: false, error: null, refs: 0 });
+const empty = (): WatchEntry => ({ objects: new Map(), synced: false, error: null, denial: null, refs: 0 });
 
 export const useWatchStore = create<WatchState>()((set, get) => ({
   entries: {},
@@ -69,12 +72,12 @@ export const useWatchStore = create<WatchState>()((set, get) => ({
     const e = get().entries[key] ?? empty();
     set({ entries: { ...get().entries, [key]: { ...e, synced } } });
   },
-  setError(key, error) {
+  setError(key, error, denial = null) {
     const e = get().entries[key] ?? empty();
-    set({ entries: { ...get().entries, [key]: { ...e, error } } });
+    set({ entries: { ...get().entries, [key]: { ...e, error, denial } } });
   },
   reset(key) {
     const e = get().entries[key] ?? empty();
-    set({ entries: { ...get().entries, [key]: { ...e, objects: new Map(), synced: false, error: null } } });
+    set({ entries: { ...get().entries, [key]: { ...e, objects: new Map(), synced: false, error: null, denial: null } } });
   },
 }));

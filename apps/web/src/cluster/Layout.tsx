@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Boxes,
@@ -22,11 +22,12 @@ import {
   Settings,
   ShieldCheck,
   Sun,
+  Users as UsersIcon,
   Waypoints,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCluster, useClusters, useWatch } from "@/api/hooks";
+import { useAllowedNamespaces, useCluster, useClusters } from "@/api/hooks";
 import { NAV_GROUPS, NAV_SINGLE, resourcePath } from "@/cluster/nav";
 import { ResourceDrawer } from "@/cluster/ResourceDrawer";
 import { NamespacePicker } from "@/components/NamespacePicker";
@@ -294,8 +295,9 @@ function sectionLabel(pathname: string, clusterId: string): string {
 function TopBar({ clusterId }: { clusterId: string }) {
   const { data: cluster } = useCluster(clusterId);
   const { namespace, setNamespace, search, setSearch } = useUI();
-  const { items: namespaces } = useWatch(clusterId, { group: "", version: "v1", resource: "namespaces" }, "", { columnsOnly: true });
-  const nsNames = useMemo(() => namespaces.map((n) => n.metadata?.name ?? "").filter(Boolean).sort(), [namespaces]);
+  // A namespace-limited user cannot list the cluster-scoped namespaces resource,
+  // so this falls back to the namespaces in their own grant.
+  const { namespaces: nsNames, restricted: nsRestricted } = useAllowedNamespaces(clusterId);
   const loc = useLocation();
   const { theme, toggle } = useTheme();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -345,7 +347,7 @@ function TopBar({ clusterId }: { clusterId: string }) {
       )}
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <NamespacePicker namespaces={nsNames} value={namespace} onChange={setNamespace} />
+        <NamespacePicker namespaces={nsNames} value={namespace} onChange={setNamespace} allowAll={!nsRestricted} />
         <InputGroup className="hidden h-8 w-44 sm:flex lg:w-64">
           <InputGroupAddon>
             <Search className="size-3.5" />
@@ -409,6 +411,7 @@ function BottomTabs({ clusterId }: { clusterId: string }) {
 
 function CommandPalette({ clusterId }: { clusterId: string }) {
   const [open, setOpen] = useState(false);
+  const isAdmin = useSession((s) => s.user?.role) === "admin";
   const nav = useNavigate();
   const { clusters } = useClusters();
   const { toggle } = useTheme();
@@ -489,6 +492,11 @@ function CommandPalette({ clusterId }: { clusterId: string }) {
           <CommandItem onSelect={() => go("/settings")}>
             <Settings /> Settings
           </CommandItem>
+          {isAdmin && (
+            <CommandItem value="users accounts roles grants access" onSelect={() => go("/settings/users")}>
+              <UsersIcon /> Manage users
+            </CommandItem>
+          )}
         </CommandGroup>
       </CommandList>
       </Command>

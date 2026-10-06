@@ -47,11 +47,23 @@ interface Sub {
   gvr: GVRKey;
   options: MuxOptions;
   handler: Handler;
+  /** Permission denials are permanent: stop re-subscribing and keep the message on screen. */
+  denied?: boolean;
+  /** Per-subscription retry delay, so one unhealthy watch cannot spin. */
+  retry: number;
+  retryTimer?: ReturnType<typeof setTimeout>;
 }
 
 const IDLE_CLOSE_MS = 5_000;
 const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 30_000;
+const SUB_RETRY_MIN_MS = 2_000;
+const SUB_RETRY_MAX_MS = 60_000;
+
+/** True when a mux error payload means "not allowed" rather than "try again". */
+function isDenied(e: MuxEvent["error"]): boolean {
+  return e?.code === 403 || e?.reason === "Forbidden";
+}
 /** After this many consecutive failed opens (never reached OPEN) the cluster falls back to Connect streams. */
 const FALLBACK_AFTER_FAILURES = 2;
 
@@ -72,7 +84,7 @@ class ClusterMux {
 
   subscribe(gvr: GVRKey, options: MuxOptions, handler: Handler, kind?: MuxKind): () => void {
     const id = `w${this.nextId++}`;
-    const sub: Sub = { id, kind, gvr, options, handler };
+    const sub: Sub = { id, kind, gvr, options, handler, retry: SUB_RETRY_MIN_MS };
     this.subs.set(id, sub);
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
@@ -81,6 +93,8 @@ class ClusterMux {
     if (this.open) this.send(subMsg(sub));
     else this.ensureOpen();
     return () => {
+      const s = this.subs.get(id);
+      if (s?.retryTimer) clearTimeout(s.retryTimer);
       if (!this.subs.delete(id)) return;
       if (this.open) this.send({ op: "unsub", id });
       if (this.subs.size === 0) this.scheduleIdleClose();
@@ -103,6 +117,7 @@ class ClusterMux {
       this.openFailures = 0;
       this.backoff = BACKOFF_MIN_MS;
       for (const sub of this.subs.values()) {
+        if (sub.denied) continue; // a refused watch stays refused; don't re-ask on every reconnect
         sub.handler({ type: "reset" });
         this.send(subMsg(sub));
       }
@@ -116,15 +131,32 @@ class ClusterMux {
       }
       const sub = this.subs.get(msg.id);
       if (!sub) return;
+
+      // A permission denial is an answer, not a failure: keep it on screen and
+      // stop asking, so a scoped user does not generate a retry storm.
+      if ((msg.type === "ERROR" || msg.type === "CLOSED") && isDenied(msg.error)) {
+        sub.denied = true;
+        sub.handler({ type: "ERROR", error: msg.error });
+        return;
+      }
+
       sub.handler({ type: msg.type, synced: msg.synced, object: msg.object, catalog: msg.catalog, event: msg.event, error: msg.error });
+
       if (msg.type === "CLOSED") {
-        // The agent-side stream ended (cluster offline, RBAC…). Retry this sub with the socket's backoff.
-        setTimeout(() => {
-          if (this.subs.has(msg.id) && this.open) {
+        // The agent-side stream ended (cluster offline, agent restart…). Retry
+        // this subscription on its own growing delay.
+        const delay = sub.retry + Math.random() * 250;
+        sub.retry = Math.min(sub.retry * 2, SUB_RETRY_MAX_MS);
+        if (sub.retryTimer) clearTimeout(sub.retryTimer);
+        sub.retryTimer = setTimeout(() => {
+          sub.retryTimer = undefined;
+          if (this.subs.has(msg.id) && this.open && !sub.denied) {
             sub.handler({ type: "reset" });
             this.send(subMsg(sub));
           }
-        }, this.backoff);
+        }, delay);
+      } else if (msg.type === "SYNC" && msg.synced) {
+        sub.retry = SUB_RETRY_MIN_MS; // healthy again
       }
     };
     ws.onerror = () => {
