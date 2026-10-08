@@ -92,36 +92,72 @@ func (s *Store) CreateCluster(ctx context.Context, name string) (*Cluster, error
 }
 
 // CreateEnrollmentToken issues a token for a cluster; returns the plaintext.
+// Any outstanding unused token for the same cluster is invalidated first, so
+// exactly one enrollment token is ever live per cluster.
 func (s *Store) CreateEnrollmentToken(ctx context.Context, clusterID string, ttl time.Duration) (string, error) {
 	tok := RandomToken("kmt_enr_")
-	_, err := s.db.ExecContext(ctx, `INSERT INTO enrollment_tokens(token_hash, cluster_id, expires_at) VALUES (?, ?, ?)`,
-		HashToken(tok), clusterID, time.Now().UTC().Add(ttl))
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM enrollment_tokens WHERE cluster_id = ? AND used_at IS NULL`, clusterID); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO enrollment_tokens(token_hash, cluster_id, expires_at) VALUES (?, ?, ?)`,
+		HashToken(tok), clusterID, time.Now().UTC().Add(ttl)); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
 		return "", err
 	}
 	return tok, nil
 }
 
-// ErrTokenInvalid is returned for unknown/expired enrollment tokens.
+// ErrTokenInvalid is returned for unknown or expired enrollment tokens.
 var ErrTokenInvalid = errors.New("store: enrollment token invalid or expired")
 
-// ConsumeEnrollmentToken validates a token and marks it used. Tokens may be
-// reused until expiry (so a restarted agent that lost its identity can
-// re-enroll), but used_at is recorded for auditing.
+// ErrTokenUsed is returned for an enrollment token that has already enrolled an
+// agent. Tokens are single use; an admin must issue a new one.
+var ErrTokenUsed = errors.New("store: enrollment token has already been used")
+
+// ConsumeEnrollmentToken validates a token and marks it used, atomically.
+//
+// Tokens are single use: the claim is an UPDATE guarded by `used_at IS NULL`,
+// so when two agents race with the same token exactly one sees a row affected
+// and the loser is told the token is spent rather than silently enrolling too.
+// An agent that still holds its identity never needs a token again; one that
+// lost it needs an admin to issue a fresh token.
 func (s *Store) ConsumeEnrollmentToken(ctx context.Context, token string) (clusterID string, err error) {
+	h := HashToken(token)
+	now := time.Now().UTC()
+
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE enrollment_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`, now, h, now)
+	if err != nil {
+		return "", err
+	}
+	if n, _ := res.RowsAffected(); n == 1 {
+		if err := s.db.QueryRowContext(ctx, `SELECT cluster_id FROM enrollment_tokens WHERE token_hash = ?`, h).Scan(&clusterID); err != nil {
+			return "", err
+		}
+		return clusterID, nil
+	}
+
+	// Nothing claimed: say why, so the agent logs something actionable.
+	var usedAt sql.NullTime
 	var expires time.Time
-	err = s.db.QueryRowContext(ctx, `SELECT cluster_id, expires_at FROM enrollment_tokens WHERE token_hash = ?`, HashToken(token)).Scan(&clusterID, &expires)
+	err = s.db.QueryRowContext(ctx, `SELECT used_at, expires_at FROM enrollment_tokens WHERE token_hash = ?`, h).Scan(&usedAt, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrTokenInvalid
 	}
 	if err != nil {
 		return "", err
 	}
-	if time.Now().UTC().After(expires) {
-		return "", ErrTokenInvalid
+	if usedAt.Valid {
+		return "", ErrTokenUsed
 	}
-	_, err = s.db.ExecContext(ctx, `UPDATE enrollment_tokens SET used_at = ? WHERE token_hash = ?`, time.Now().UTC(), HashToken(token))
-	return clusterID, err
+	return "", ErrTokenInvalid
 }
 
 // SetAgentToken stores the hash of the agent bearer token.

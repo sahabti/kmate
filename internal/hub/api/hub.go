@@ -127,6 +127,42 @@ func (h *HubService) GetCluster(ctx context.Context, req *connect.Request[kmatev
 }
 
 // CreateCluster registers a cluster and issues an enrollment token.
+// helmCommand renders the ready-to-paste install line shown after a cluster is
+// created or a replacement token is issued. Both paths use it so they cannot drift.
+func (h *HubService) helmCommand(token, clusterName string) string {
+	return fmt.Sprintf("helm upgrade --install kmate-agent %s -n kmate-system --create-namespace --set hub.addr=%s --set enrollment.token=%s --set hub.insecure=%t --set clusterName=%q",
+		h.cfg.ChartRef, h.cfg.AgentPublicAddr, token, h.cfg.Insecure, clusterName)
+}
+
+// IssueEnrollmentToken mints a replacement enrolment token for a cluster that
+// already exists, for when an agent has lost its stored identity. Enrolment
+// tokens are single use, so this is the only way back without deleting the
+// cluster. Issuing one invalidates any outstanding unused token for it.
+func (h *HubService) IssueEnrollmentToken(ctx context.Context, req *connect.Request[kmatev1.IssueEnrollmentTokenRequest]) (*connect.Response[kmatev1.IssueEnrollmentTokenResponse], error) {
+	if err := auth.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	id := req.Msg.GetClusterId()
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("cluster_id is required"))
+	}
+	c, err := h.store.GetCluster(ctx, id)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, errors.New("no such cluster"))
+	}
+	tok, err := h.store.CreateEnrollmentToken(ctx, c.ID, 24*time.Hour)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	p := auth.FromContext(ctx)
+	_ = h.store.Audit(ctx, store.AuditEvent{User: p.Email, ClusterID: c.ID, Action: "cluster.token.issue", Target: c.Name, Result: "ok"})
+	return connect.NewResponse(&kmatev1.IssueEnrollmentTokenResponse{
+		EnrollmentToken: tok,
+		HelmCommand:     h.helmCommand(tok, c.Name),
+		AgentAddr:       h.cfg.AgentPublicAddr,
+	}), nil
+}
+
 func (h *HubService) CreateCluster(ctx context.Context, req *connect.Request[kmatev1.CreateClusterRequest]) (*connect.Response[kmatev1.CreateClusterResponse], error) {
 	if err := auth.RequireAdmin(ctx); err != nil {
 		return nil, err
@@ -146,8 +182,7 @@ func (h *HubService) CreateCluster(ctx context.Context, req *connect.Request[kma
 	p := auth.FromContext(ctx)
 	_ = h.store.Audit(ctx, store.AuditEvent{User: p.Email, ClusterID: c.ID, Action: "cluster.create", Target: name, Result: "ok"})
 	h.relay.Publish(&kmatev1.ClusterEvent{Type: "ADDED", Cluster: c.Proto()})
-	helm := fmt.Sprintf("helm upgrade --install kmate-agent %s -n kmate-system --create-namespace --set hub.addr=%s --set enrollment.token=%s --set hub.insecure=%t --set clusterName=%q",
-		h.cfg.ChartRef, h.cfg.AgentPublicAddr, tok, h.cfg.Insecure, name)
+	helm := h.helmCommand(tok, name)
 	return connect.NewResponse(&kmatev1.CreateClusterResponse{
 		Cluster:         c.Proto(),
 		EnrollmentToken: tok,

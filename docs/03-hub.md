@@ -91,6 +91,7 @@ client gets the latest state, never a backlog).
 | `KMATE_TLS_CERT/KEY` | optional; else `KMATE_INSECURE=true` for dev |
 | `KMATE_OIDC_*` | issuer, client, claim names and group mappings — see [12-oidc.md](12-oidc.md) |
 | `KMATE_LOCAL_LOGIN` | `false` requires SSO; ignored when no OIDC issuer is configured |
+| `KMATE_AGENT_MTLS` | `off`, `optional` (default) or `required`. The hub issues agent certificates and verifies them when presented; `required` refuses agents that only have a bearer token. See [06-security.md](06-security.md#agent-mutual-tls) for rotating a fleet. |
 | `KMATE_ADMIN_EMAIL/PASSWORD` | bootstrap admin, created only when no users exist |
 | `KMATE_ADMIN_K8S_USER` | optional Kubernetes username for the bootstrap admin (default: the email) |
 | `KMATE_ADMIN_K8S_GROUPS` | optional comma-separated impersonation groups for the bootstrap admin |
@@ -118,6 +119,8 @@ See [12-oidc.md](12-oidc.md) for provider setup and the full variable list.
 ## API surface (client-facing, Connect)
 
 - `HubService`: `Login`, `Logout`, `Me`, `ListClusters`, `GetCluster`, `CreateCluster`
+  (returns a **single-use** enrollment token), `IssueEnrollmentToken` (admin only; mints a
+  replacement for an existing cluster and invalidates any outstanding unused token)
   (returns enrollment token + `helm install` command), `DeleteCluster`,
   `WatchClusters`, `ListAuditEvents`.
 - `HubService`, user administration (**global admin only**): `ListUsers`, `CreateUser`,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
-import { Boxes, Cpu, FolderTree, MoreHorizontal, Plus, Server, Settings, Trash2, Waypoints } from "lucide-react";
+import { Boxes, Cpu, FolderTree, KeyRound, MoreHorizontal, Plus, Server, Settings, Trash2, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { hub, errorMessage } from "@/api/client";
 import { useClusters } from "@/api/hooks";
@@ -29,7 +29,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/spinner";
-import { ClusterStatus, type Cluster, type CreateClusterResponse } from "@/gen/kmate/v1/hub_pb";
+import { ClusterStatus, type Cluster, type CreateClusterResponse, type IssueEnrollmentTokenResponse } from "@/gen/kmate/v1/hub_pb";
 import { useSession } from "@/store/session";
 
 export function statusTone(s: ClusterStatus): { tone: Tone; label: string } {
@@ -105,7 +105,9 @@ function ClusterCard({ c, onOpen }: { c: Cluster; onOpen: () => void }) {
   const info = c.info;
   const hb = c.lastHeartbeat ? timestampDate(c.lastHeartbeat) : null;
   const [confirm, setConfirm] = useState(false);
+  const [reissue, setReissue] = useState(false);
   const [busy, setBusy] = useState(false);
+  const isAdmin = useSession((s) => s.user?.role) === "admin";
 
   const del = async () => {
     setBusy(true);
@@ -146,6 +148,11 @@ function ClusterCard({ c, onOpen }: { c: Cluster; onOpen: () => void }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              {isAdmin && (
+                <DropdownMenuItem onSelect={() => setReissue(true)}>
+                  <KeyRound /> Issue new enrollment token
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem variant="destructive" onSelect={() => setConfirm(true)}>
                 <Trash2 /> Remove cluster
               </DropdownMenuItem>
@@ -169,6 +176,8 @@ function ClusterCard({ c, onOpen }: { c: Cluster; onOpen: () => void }) {
         )}
       </CardFooter>
 
+      <ReissueTokenDialog cluster={c} open={reissue} onOpenChange={setReissue} />
+
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
@@ -184,6 +193,95 @@ function ClusterCard({ c, onOpen }: { c: Cluster; onOpen: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  );
+}
+
+/** Token plus install command, shared by "Add cluster" and "Issue new token". */
+function EnrollmentDetails({ token, helmCommand }: { token: string; helmCommand: string }) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Enrollment token</span>
+          <CopyButton value={token} size="sm" label="Copy" />
+        </div>
+        <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-[11px] break-all">
+          <Badge variant="outline" className="shrink-0 rounded-md text-[10px]">24h · single use</Badge>
+          {token}
+        </div>
+      </div>
+      <CodeBlock code={helmCommand} language="bash" filename="install-agent.sh" showLineNumbers={false} wrap>
+        <CodeBlockHeader />
+        <CodeBlockContent />
+      </CodeBlock>
+      <Callout variant="info" title="Local development">
+        <CalloutTitle>Running the agent outside the cluster?</CalloutTitle>
+        <CalloutDescription className="space-y-2">
+          <p>From the repo root, with your kubeconfig pointing at the cluster:</p>
+          <CodeBlock code={`KMATE_ENROLLMENT_TOKEN=${token} make agent-local`} language="bash" showLineNumbers={false} wrap>
+            <CodeBlockHeader />
+            <CodeBlockContent />
+          </CodeBlock>
+        </CalloutDescription>
+      </Callout>
+    </div>
+  );
+}
+
+/** Mints a replacement token for a cluster whose agent has lost its identity. */
+function ReissueTokenDialog({ cluster, open, onOpenChange }: { cluster: Cluster; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<IssueEnrollmentTokenResponse | null>(null);
+
+  const issue = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      setResult(await hub.issueEnrollmentToken({ clusterId: cluster.id }));
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const close = () => {
+    onOpenChange(false);
+    setTimeout(() => { setResult(null); setErr(null); }, 200);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : close())}>
+      <DialogContent className="sm:max-w-xl" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>New enrollment token for "{cluster.name}"</DialogTitle>
+          <DialogDescription>
+            Enrollment tokens are single use. Issue a new one only when an agent has lost its stored
+            identity and cannot reconnect. A running agent never needs one.
+          </DialogDescription>
+        </DialogHeader>
+        {err && <ErrorCallout message={err} />}
+        {result ? (
+          <>
+            <EnrollmentDetails token={result.enrollmentToken} helmCommand={result.helmCommand} />
+            <DialogFooter><Button onClick={close}>Done</Button></DialogFooter>
+          </>
+        ) : (
+          <>
+            <Callout variant="warning">
+              <CalloutDescription>
+                Any outstanding unused token for this cluster stops working immediately.
+              </CalloutDescription>
+            </Callout>
+            <DialogFooter>
+              <Button variant="outline" onClick={close}>Cancel</Button>
+              <Button onClick={issue} disabled={busy}>{busy && <Spinner size="sm" />} Issue token</Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -258,32 +356,7 @@ function AddClusterDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </form>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Enrollment token</span>
-                <CopyButton value={result.enrollmentToken} size="sm" label="Copy" />
-              </div>
-              <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-[11px] break-all">
-                <Badge variant="outline" className="shrink-0 rounded-md text-[10px]">
-                  24h
-                </Badge>
-                {result.enrollmentToken}
-              </div>
-            </div>
-            <CodeBlock code={result.helmCommand} language="bash" filename="install-agent.sh" showLineNumbers={false} wrap>
-              <CodeBlockHeader />
-              <CodeBlockContent />
-            </CodeBlock>
-            <Callout variant="info" title="Local development">
-              <CalloutTitle>Running the agent outside the cluster?</CalloutTitle>
-              <CalloutDescription className="space-y-2">
-                <p>From the repo root, with your kubeconfig pointing at the cluster:</p>
-                <CodeBlock code={`KMATE_ENROLLMENT_TOKEN=${result.enrollmentToken} make agent-local`} language="bash" showLineNumbers={false} wrap>
-                  <CodeBlockHeader />
-                  <CodeBlockContent />
-                </CodeBlock>
-              </CalloutDescription>
-            </Callout>
+            <EnrollmentDetails token={result.enrollmentToken} helmCommand={result.helmCommand} />
             <DialogFooter>
               <Button onClick={close}>Done</Button>
             </DialogFooter>
