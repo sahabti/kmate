@@ -34,6 +34,7 @@ spec:
         - { name: KMATE_PUBLIC_URL, value: {{ .Values.publicUrl | quote }} }
         - { name: KMATE_AGENT_PUBLIC_ADDR, value: {{ include "kmate-hub.agentAddr" . | quote }} }
         - { name: KMATE_INSECURE, value: {{ .Values.insecure | quote }} }
+        - { name: KMATE_AGENT_MTLS, value: {{ .Values.agentMTLS | default "optional" | quote }} }
         - { name: KMATE_LOG_LEVEL, value: {{ .Values.logLevel | quote }} }
         - { name: KMATE_CORS_ORIGINS, value: {{ printf "%s,%s" .Values.publicUrl .Values.corsOrigins | trimSuffix "," | quote }} }
         - { name: KMATE_ADMIN_EMAIL, value: {{ .Values.admin.email | quote }} }

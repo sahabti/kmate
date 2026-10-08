@@ -1,4 +1,4 @@
-{{- if and .Values.podDisruptionBudget.enabled (gt (int .Values.replicaCount) 0) }}
+{{- if and (.Values.podDisruptionBudget | default dict).enabled (gt (int (.Values.replicaCount | default 1)) 0) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

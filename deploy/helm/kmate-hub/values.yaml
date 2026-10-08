@@ -16,6 +16,13 @@ insecure: true
 tls:
   secretName: ""
 
+# Agent authentication. Agents always enrol with a one-time token and keep a
+# bearer token; mutual TLS is an optional upgrade on top of that.
+#   off      no certificates are issued; agents authenticate with their token
+#   optional certificates are issued and verified when present, tokens still accepted
+#   required agents without a certificate are refused
+agentMTLS: optional
+
 admin:
   email: admin@kmate.local
   # Leave empty to generate a random password on first install (stored in a Secret, printed by NOTES).
