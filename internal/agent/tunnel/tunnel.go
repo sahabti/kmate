@@ -26,7 +26,12 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-const heartbeatEvery = 15 * time.Second
+const (
+	heartbeatEvery = 15 * time.Second
+	// How often the agent checks whether its certificate is due for renewal.
+	// Cheap: it only parses a cached PEM until the threshold is crossed.
+	renewCheckEvery = 1 * time.Hour
+)
 
 // Config for the tunnel client.
 type Config struct {
@@ -143,16 +148,29 @@ func (c *Client) runOnce(ctx context.Context) error {
 			return errors.New("no stored identity and KMATE_ENROLLMENT_TOKEN is empty")
 		}
 		c.log.Info("enrolling with hub", "hub", c.cfg.HubAddr)
+		// Generate the keypair here and send only the CSR, so the hub signs an
+		// identity whose private half it never sees.
+		csrPEM, keyPEM, kerr := newCSR(c.clusterName())
+		if kerr != nil {
+			c.log.Warn("could not generate a CSR; the hub will issue a key instead", "err", kerr)
+			csrPEM, keyPEM = nil, nil
+		}
 		ectx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		resp, err := svc.Enroll(ectx, &kmatev1.EnrollRequest{
 			EnrollmentToken: c.cfg.EnrollmentToken,
 			ClusterInfo:     c.clients.ClusterInfo(ectx, c.catalogVersion()),
+			CsrPem:          csrPEM,
 		})
 		cancel()
 		if err != nil {
 			return fmt.Errorf("enroll: %w", err)
 		}
-		c.identity = &Identity{AgentID: resp.AgentId, ClusterID: resp.ClusterId, AgentToken: resp.AgentToken, CertPEM: resp.CertPem, KeyPEM: resp.KeyPem, CAPEM: resp.CaPem}
+		// When we sent a CSR the hub returns no key and we keep our own.
+		issuedKey := resp.KeyPem
+		if len(csrPEM) > 0 && len(issuedKey) == 0 {
+			issuedKey = keyPEM
+		}
+		c.identity = &Identity{AgentID: resp.AgentId, ClusterID: resp.ClusterId, AgentToken: resp.AgentToken, CertPEM: resp.CertPem, KeyPEM: issuedKey, CAPEM: resp.CaPem}
 		if err := c.store.Save(ctx, c.identity); err != nil {
 			c.log.Warn("saving identity failed", "err", err)
 		}
@@ -178,6 +196,7 @@ func (c *Client) runOnce(ctx context.Context) error {
 	sess := mux.New(stream, mux.Responder)
 	hello := &kmatev1.Hello{
 		AgentId:      c.identity.AgentID,
+		ClusterId:    c.identity.ClusterID,
 		AgentToken:   c.identity.AgentToken,
 		Version:      version.Version,
 		Capabilities: c.cfg.Capabilities,
@@ -191,6 +210,7 @@ func (c *Client) runOnce(ctx context.Context) error {
 	connectedAt := time.Now()
 
 	go c.heartbeat(sctx, sess)
+	go c.renewLoop(sctx, sess)
 	go c.pushCatalog(sctx, sess)
 	go c.controlLoop(sctx, sess)
 	go c.acceptLoop(sctx, sess)

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,7 +14,9 @@ import (
 	"syscall"
 
 	"github.com/kmate-dev/kmate/internal/hub/auth"
+	"github.com/kmate-dev/kmate/internal/hub/ca"
 	"github.com/kmate-dev/kmate/internal/hub/oidc"
+	"github.com/kmate-dev/kmate/internal/hub/relay"
 	"github.com/kmate-dev/kmate/internal/hub/server"
 	"github.com/kmate-dev/kmate/internal/hub/store"
 	"github.com/kmate-dev/kmate/internal/version"
@@ -100,6 +103,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 		WebDir:          os.Getenv("KMATE_WEB_DIR"),
 		OIDC:            oidcConfig(),
 		LocalLogin:      envBool("KMATE_LOCAL_LOGIN", true),
+		AgentMTLS:       relay.ParseMTLSMode(env("KMATE_AGENT_MTLS", "optional")),
 	}
 	log.Info("starting kmate-hub", "version", version.Version, "insecure", cfg.Insecure)
 
@@ -108,6 +112,16 @@ func run(ctx context.Context, log *slog.Logger) error {
 		return err
 	}
 	defer st.Close()
+
+	// The hub's own CA, used to issue agent client certificates. Generated on
+	// first start and reloaded afterwards so issued certificates keep validating.
+	if cfg.AgentMTLS != relay.MTLSOff {
+		authority, cerr := ca.LoadOrCreate(ctx, st, log)
+		if cerr != nil {
+			return fmt.Errorf("hub CA: %w", cerr)
+		}
+		cfg.CA = authority
+	}
 
 	secret := os.Getenv("KMATE_JWT_SECRET")
 	if secret == "" {

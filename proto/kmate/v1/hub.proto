@@ -16,6 +16,9 @@ service HubService {
   rpc GetCluster(GetClusterRequest) returns (GetClusterResponse);
   rpc CreateCluster(CreateClusterRequest) returns (CreateClusterResponse);
   rpc DeleteCluster(DeleteClusterRequest) returns (DeleteClusterResponse);
+  // Issue a fresh enrollment token for an existing cluster. Enrollment tokens
+  // are single use, so this is how an agent that lost its identity rejoins.
+  rpc IssueEnrollmentToken(IssueEnrollmentTokenRequest) returns (IssueEnrollmentTokenResponse);
   rpc WatchClusters(WatchClustersRequest) returns (stream ClusterEvent);
   rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
 
@@ -164,6 +167,13 @@ message CreateClusterResponse {
   string enrollment_token = 2;
   string helm_command = 3;
   string agent_addr = 4;
+}
+
+message IssueEnrollmentTokenRequest { string cluster_id = 1; }
+message IssueEnrollmentTokenResponse {
+  string enrollment_token = 1;
+  string helm_command = 2;
+  string agent_addr = 3;
 }
 
 message DeleteClusterRequest { string id = 1; }

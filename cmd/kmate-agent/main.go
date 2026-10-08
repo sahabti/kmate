@@ -167,6 +167,15 @@ func main() {
 		fmt.Fprintf(w, "# HELP kmate_agent_tunnel_connected 1 when the tunnel to the hub is up\n# TYPE kmate_agent_tunnel_connected gauge\nkmate_agent_tunnel_connected %d\n", connected)
 		fmt.Fprintf(w, "# HELP kmate_agent_catalog_version Current service catalog version\n# TYPE kmate_agent_catalog_version gauge\nkmate_agent_catalog_version %d\n", catalog.Version())
 		fmt.Fprintf(w, "# HELP kmate_agent_catalog_entries Number of catalog entries\n# TYPE kmate_agent_catalog_entries gauge\nkmate_agent_catalog_entries %d\n", len(catalog.Current().Entries))
+
+		// Certificate expiry, so operators can alert before an agent's identity
+		// lapses rather than discovering it when the tunnel stops reconnecting.
+		// Zero means the agent holds no certificate and is on its bearer token.
+		var certExp int64
+		if t := tc.CertExpiry(); !t.IsZero() {
+			certExp = t.Unix()
+		}
+		fmt.Fprintf(w, "# HELP kmate_agent_cert_expiry_seconds Unix time the agent client certificate expires (0 when none)\n# TYPE kmate_agent_cert_expiry_seconds gauge\nkmate_agent_cert_expiry_seconds %d\n", certExp)
 		stats := c.Stats()
 		total := 0
 		fmt.Fprintf(w, "# HELP kmate_agent_cache_objects Objects held per informer\n# TYPE kmate_agent_cache_objects gauge\n")

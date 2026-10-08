@@ -43,7 +43,22 @@ message Frame {
     Data data = 23;
     Resize resize = 24;
     CatalogSnapshot catalog = 30;
+    CertRenewalRequest cert_renewal = 31;
+    CertRenewalResponse cert_renewed = 32;
   }
+}
+
+// CertRenewalRequest is sent by the agent on an agent-initiated stream when its
+// client certificate passes two thirds of its life. The agent generates a fresh
+// keypair locally, so the private key never crosses the tunnel.
+message CertRenewalRequest {
+  bytes csr_pem = 1;
+}
+
+message CertRenewalResponse {
+  bytes cert_pem = 1;
+  bytes ca_pem = 2;
+  Error error = 3;
 }
 
 message Hello {
@@ -52,6 +67,10 @@ message Hello {
   string version = 3;
   repeated string capabilities = 4;
   ClusterInfo cluster_info = 5;
+  // The cluster the agent believes it serves. When the connection carries a
+  // client certificate the hub trusts the certificate instead and rejects a
+  // Hello that disagrees with it.
+  string cluster_id = 6;
 }
 
 message Heartbeat {

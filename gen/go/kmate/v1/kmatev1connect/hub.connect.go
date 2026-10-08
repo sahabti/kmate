@@ -49,6 +49,9 @@ const (
 	// HubServiceDeleteClusterProcedure is the fully-qualified name of the HubService's DeleteCluster
 	// RPC.
 	HubServiceDeleteClusterProcedure = "/kmate.v1.HubService/DeleteCluster"
+	// HubServiceIssueEnrollmentTokenProcedure is the fully-qualified name of the HubService's
+	// IssueEnrollmentToken RPC.
+	HubServiceIssueEnrollmentTokenProcedure = "/kmate.v1.HubService/IssueEnrollmentToken"
 	// HubServiceWatchClustersProcedure is the fully-qualified name of the HubService's WatchClusters
 	// RPC.
 	HubServiceWatchClustersProcedure = "/kmate.v1.HubService/WatchClusters"
@@ -82,6 +85,9 @@ type HubServiceClient interface {
 	GetCluster(context.Context, *connect.Request[v1.GetClusterRequest]) (*connect.Response[v1.GetClusterResponse], error)
 	CreateCluster(context.Context, *connect.Request[v1.CreateClusterRequest]) (*connect.Response[v1.CreateClusterResponse], error)
 	DeleteCluster(context.Context, *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error)
+	// Issue a fresh enrollment token for an existing cluster. Enrollment tokens
+	// are single use, so this is how an agent that lost its identity rejoins.
+	IssueEnrollmentToken(context.Context, *connect.Request[v1.IssueEnrollmentTokenRequest]) (*connect.Response[v1.IssueEnrollmentTokenResponse], error)
 	WatchClusters(context.Context, *connect.Request[v1.WatchClustersRequest]) (*connect.ServerStreamForClient[v1.ClusterEvent], error)
 	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
 	// User administration (admin only, except SetPassword on yourself).
@@ -149,6 +155,12 @@ func NewHubServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(hubServiceMethods.ByName("DeleteCluster")),
 			connect.WithClientOptions(opts...),
 		),
+		issueEnrollmentToken: connect.NewClient[v1.IssueEnrollmentTokenRequest, v1.IssueEnrollmentTokenResponse](
+			httpClient,
+			baseURL+HubServiceIssueEnrollmentTokenProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("IssueEnrollmentToken")),
+			connect.WithClientOptions(opts...),
+		),
 		watchClusters: connect.NewClient[v1.WatchClustersRequest, v1.ClusterEvent](
 			httpClient,
 			baseURL+HubServiceWatchClustersProcedure,
@@ -214,23 +226,24 @@ func NewHubServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 
 // hubServiceClient implements HubServiceClient.
 type hubServiceClient struct {
-	login           *connect.Client[v1.LoginRequest, v1.LoginResponse]
-	logout          *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
-	me              *connect.Client[v1.MeRequest, v1.MeResponse]
-	listClusters    *connect.Client[v1.ListClustersRequest, v1.ListClustersResponse]
-	getCluster      *connect.Client[v1.GetClusterRequest, v1.GetClusterResponse]
-	createCluster   *connect.Client[v1.CreateClusterRequest, v1.CreateClusterResponse]
-	deleteCluster   *connect.Client[v1.DeleteClusterRequest, v1.DeleteClusterResponse]
-	watchClusters   *connect.Client[v1.WatchClustersRequest, v1.ClusterEvent]
-	listAuditEvents *connect.Client[v1.ListAuditEventsRequest, v1.ListAuditEventsResponse]
-	listUsers       *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
-	createUser      *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
-	updateUser      *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
-	deleteUser      *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
-	setPassword     *connect.Client[v1.SetPasswordRequest, v1.SetPasswordResponse]
-	listGrants      *connect.Client[v1.ListGrantsRequest, v1.ListGrantsResponse]
-	setGrant        *connect.Client[v1.SetGrantRequest, v1.SetGrantResponse]
-	deleteGrant     *connect.Client[v1.DeleteGrantRequest, v1.DeleteGrantResponse]
+	login                *connect.Client[v1.LoginRequest, v1.LoginResponse]
+	logout               *connect.Client[v1.LogoutRequest, v1.LogoutResponse]
+	me                   *connect.Client[v1.MeRequest, v1.MeResponse]
+	listClusters         *connect.Client[v1.ListClustersRequest, v1.ListClustersResponse]
+	getCluster           *connect.Client[v1.GetClusterRequest, v1.GetClusterResponse]
+	createCluster        *connect.Client[v1.CreateClusterRequest, v1.CreateClusterResponse]
+	deleteCluster        *connect.Client[v1.DeleteClusterRequest, v1.DeleteClusterResponse]
+	issueEnrollmentToken *connect.Client[v1.IssueEnrollmentTokenRequest, v1.IssueEnrollmentTokenResponse]
+	watchClusters        *connect.Client[v1.WatchClustersRequest, v1.ClusterEvent]
+	listAuditEvents      *connect.Client[v1.ListAuditEventsRequest, v1.ListAuditEventsResponse]
+	listUsers            *connect.Client[v1.ListUsersRequest, v1.ListUsersResponse]
+	createUser           *connect.Client[v1.CreateUserRequest, v1.CreateUserResponse]
+	updateUser           *connect.Client[v1.UpdateUserRequest, v1.UpdateUserResponse]
+	deleteUser           *connect.Client[v1.DeleteUserRequest, v1.DeleteUserResponse]
+	setPassword          *connect.Client[v1.SetPasswordRequest, v1.SetPasswordResponse]
+	listGrants           *connect.Client[v1.ListGrantsRequest, v1.ListGrantsResponse]
+	setGrant             *connect.Client[v1.SetGrantRequest, v1.SetGrantResponse]
+	deleteGrant          *connect.Client[v1.DeleteGrantRequest, v1.DeleteGrantResponse]
 }
 
 // Login calls kmate.v1.HubService.Login.
@@ -266,6 +279,11 @@ func (c *hubServiceClient) CreateCluster(ctx context.Context, req *connect.Reque
 // DeleteCluster calls kmate.v1.HubService.DeleteCluster.
 func (c *hubServiceClient) DeleteCluster(ctx context.Context, req *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error) {
 	return c.deleteCluster.CallUnary(ctx, req)
+}
+
+// IssueEnrollmentToken calls kmate.v1.HubService.IssueEnrollmentToken.
+func (c *hubServiceClient) IssueEnrollmentToken(ctx context.Context, req *connect.Request[v1.IssueEnrollmentTokenRequest]) (*connect.Response[v1.IssueEnrollmentTokenResponse], error) {
+	return c.issueEnrollmentToken.CallUnary(ctx, req)
 }
 
 // WatchClusters calls kmate.v1.HubService.WatchClusters.
@@ -327,6 +345,9 @@ type HubServiceHandler interface {
 	GetCluster(context.Context, *connect.Request[v1.GetClusterRequest]) (*connect.Response[v1.GetClusterResponse], error)
 	CreateCluster(context.Context, *connect.Request[v1.CreateClusterRequest]) (*connect.Response[v1.CreateClusterResponse], error)
 	DeleteCluster(context.Context, *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error)
+	// Issue a fresh enrollment token for an existing cluster. Enrollment tokens
+	// are single use, so this is how an agent that lost its identity rejoins.
+	IssueEnrollmentToken(context.Context, *connect.Request[v1.IssueEnrollmentTokenRequest]) (*connect.Response[v1.IssueEnrollmentTokenResponse], error)
 	WatchClusters(context.Context, *connect.Request[v1.WatchClustersRequest], *connect.ServerStream[v1.ClusterEvent]) error
 	ListAuditEvents(context.Context, *connect.Request[v1.ListAuditEventsRequest]) (*connect.Response[v1.ListAuditEventsResponse], error)
 	// User administration (admin only, except SetPassword on yourself).
@@ -388,6 +409,12 @@ func NewHubServiceHandler(svc HubServiceHandler, opts ...connect.HandlerOption) 
 		HubServiceDeleteClusterProcedure,
 		svc.DeleteCluster,
 		connect.WithSchema(hubServiceMethods.ByName("DeleteCluster")),
+		connect.WithHandlerOptions(opts...),
+	)
+	hubServiceIssueEnrollmentTokenHandler := connect.NewUnaryHandler(
+		HubServiceIssueEnrollmentTokenProcedure,
+		svc.IssueEnrollmentToken,
+		connect.WithSchema(hubServiceMethods.ByName("IssueEnrollmentToken")),
 		connect.WithHandlerOptions(opts...),
 	)
 	hubServiceWatchClustersHandler := connect.NewServerStreamHandler(
@@ -466,6 +493,8 @@ func NewHubServiceHandler(svc HubServiceHandler, opts ...connect.HandlerOption) 
 			hubServiceCreateClusterHandler.ServeHTTP(w, r)
 		case HubServiceDeleteClusterProcedure:
 			hubServiceDeleteClusterHandler.ServeHTTP(w, r)
+		case HubServiceIssueEnrollmentTokenProcedure:
+			hubServiceIssueEnrollmentTokenHandler.ServeHTTP(w, r)
 		case HubServiceWatchClustersProcedure:
 			hubServiceWatchClustersHandler.ServeHTTP(w, r)
 		case HubServiceListAuditEventsProcedure:
@@ -521,6 +550,10 @@ func (UnimplementedHubServiceHandler) CreateCluster(context.Context, *connect.Re
 
 func (UnimplementedHubServiceHandler) DeleteCluster(context.Context, *connect.Request[v1.DeleteClusterRequest]) (*connect.Response[v1.DeleteClusterResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.DeleteCluster is not implemented"))
+}
+
+func (UnimplementedHubServiceHandler) IssueEnrollmentToken(context.Context, *connect.Request[v1.IssueEnrollmentTokenRequest]) (*connect.Response[v1.IssueEnrollmentTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kmate.v1.HubService.IssueEnrollmentToken is not implemented"))
 }
 
 func (UnimplementedHubServiceHandler) WatchClusters(context.Context, *connect.Request[v1.WatchClustersRequest], *connect.ServerStream[v1.ClusterEvent]) error {

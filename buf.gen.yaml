@@ -9,16 +9,16 @@ managed:
       module: buf.build/protocolbuffers/wellknowntypes
 plugins:
   # Go
-  - remote: buf.build/protocolbuffers/go
+  - remote: buf.build/protocolbuffers/go:v1.36.11
     out: gen/go
     opt: paths=source_relative
-  - remote: buf.build/grpc/go
+  - remote: buf.build/grpc/go:v1.5.1
     out: gen/go
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go
+  - remote: buf.build/connectrpc/go:v1.18.1
     out: gen/go
     opt: paths=source_relative
   # TypeScript (Connect-ES v2 / protobuf-es v2)
-  - remote: buf.build/bufbuild/es
+  - remote: buf.build/bufbuild/es:v2.9.0
     out: apps/web/src/gen
     opt: target=ts

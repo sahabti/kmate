@@ -25,6 +25,7 @@ import (
 	"github.com/kmate-dev/kmate/gen/go/kmate/v1/kmatev1connect"
 	"github.com/kmate-dev/kmate/internal/hub/api"
 	"github.com/kmate-dev/kmate/internal/hub/auth"
+	"github.com/kmate-dev/kmate/internal/hub/ca"
 	"github.com/kmate-dev/kmate/internal/hub/oidc"
 	"github.com/kmate-dev/kmate/internal/hub/pf"
 	"github.com/kmate-dev/kmate/internal/hub/registry"
@@ -51,6 +52,13 @@ type Config struct {
 	OIDC       oidc.Config
 	LocalLogin bool
 	JWTSecret  []byte
+
+	// AgentMTLS is off | optional | required. Optional is the default: a client
+	// certificate is verified when presented and the bearer token still works,
+	// so agents deployed before mTLS keep connecting while they rotate.
+	AgentMTLS relay.MTLSMode
+	// CA is the hub's certificate authority. Nil disables issuance entirely.
+	CA *ca.CA
 }
 
 // Server holds all listeners.
@@ -74,6 +82,11 @@ func New(cfg Config, st *store.Store, a *auth.Authenticator, log *slog.Logger) (
 	a = a.WithDirectory(st)
 	reg := registry.New()
 	rl := relay.New(st, reg, log)
+	mtls := cfg.AgentMTLS
+	if mtls == "" {
+		mtls = relay.MTLSOptional
+	}
+	rl = rl.WithCA(cfg.CA, mtls)
 	s := &Server{cfg: cfg, log: log, store: st, auth: a, reg: reg, relay: rl}
 
 	var tlsCfg *tls.Config
@@ -95,7 +108,18 @@ func New(cfg Config, st *store.Store, a *auth.Authenticator, log *slog.Logger) (
 		grpc.MaxRecvMsgSize(16 << 20),
 	}
 	if tlsCfg != nil {
-		gopts = append(gopts, grpc.Creds(credentials.NewTLS(tlsCfg)))
+		// The agent listener gets its own TLS config so asking for client
+		// certificates never affects browsers on the client listener.
+		agentTLS := tlsCfg.Clone()
+		if cfg.CA != nil && mtls != relay.MTLSOff {
+			agentTLS.ClientCAs = cfg.CA.Pool()
+			// Verify a certificate whenever one is offered, but let the
+			// handshake succeed without one: relay.authenticateAgent decides
+			// whether a tokenless agent is acceptable, which keeps the refusal
+			// message useful instead of a bare TLS alert.
+			agentTLS.ClientAuth = tls.VerifyClientCertIfGiven
+		}
+		gopts = append(gopts, grpc.Creds(credentials.NewTLS(agentTLS)))
 	}
 	s.grpc = grpc.NewServer(gopts...)
 	kmatev1.RegisterAgentServiceServer(s.grpc, rl)
@@ -164,7 +188,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("agent listener: %w", err)
 	}
 	go func() {
-		s.log.Info("agent gRPC listening", "addr", s.cfg.AgentAddr, "tls", !s.cfg.Insecure)
+		s.log.Info("agent gRPC listening", "addr", s.cfg.AgentAddr, "tls", !s.cfg.Insecure, "mtls", s.relay.MTLSMode())
 		errc <- s.grpc.Serve(agentLn)
 	}()
 	go func() {
