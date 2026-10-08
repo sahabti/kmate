@@ -122,8 +122,101 @@ Without impersonation the answers describe the agent's own ServiceAccount and ca
 - `rbac.read=true`: `get,list,watch` on `*.*` + non-resource `/metrics`, `/healthz`, `/version`.
 - `rbac.write=false`: `create,update,patch,delete` on workloads/config/network/storage.
 - `rbac.exec=false`: `pods/exec`, `pods/attach`, `pods/portforward`.
-- `rbac.impersonate=false`: `impersonate` on `users`, `groups`, `serviceaccounts`.
+- `rbac.impersonate=true`: `impersonate` on `users`, `groups`, `serviceaccounts` and
+  `userextras/*`. On by default, because without it every KMate user shares the
+  agent's own permissions. Turn it off only where the agent may not be granted the
+  impersonate verb.
 - `rbac.secretsRead=true`: can be set false to exclude Secrets from the reader role entirely.
+
+## Binding KMate users to Kubernetes RBAC
+
+With impersonation on, the agent performs each call **as the signed-in user**, so
+your own Roles and RoleBindings decide what actually happens and the cluster audit
+log names the real person. KMate grants decide what someone can *reach*; Kubernetes
+decides what they can *do*. Neither can widen the other.
+
+Each KMate user carries a Kubernetes identity: `k8s_user` (defaults to their email)
+and `k8s_groups`. Binding a **group** rather than each individual is usually easier,
+because adding someone to the group in KMate, or in your identity provider, grants
+access without touching the cluster again.
+
+A worked example. Give the platform team read access to one namespace:
+
+```bash
+# 1. In KMate: the user's Kubernetes identity carries the group.
+#    (Settings → Users, or CreateUser with k8sGroups: ["kmate-devs"].)
+
+# 2. In KMate: let them reach that cluster, limited to one namespace.
+#    (Settings → Users → Grants, role "operator", namespaces ["shop"].)
+
+# 3. In Kubernetes: decide what the group may actually do there.
+kubectl -n shop create rolebinding kmate-devs-view \
+  --clusterrole=view --group=kmate-devs
+```
+
+The result is deliberately conservative. That user is an *operator* in KMate, so the
+interface offers write actions, but the API server refuses them because the binding
+only grants `view`:
+
+```
+Forbidden: deployments.apps "shop-api" is forbidden: User "dev@kmate.local"
+cannot patch resource "deployments/scale" in API group "apps" in the namespace "shop"
+```
+
+To let them write, swap `--clusterrole=view` for `edit`. Nothing in KMate changes.
+
+The interface reflects this without being told: `ClusterService.AccessReview` asks the
+API server what the user may do, so buttons they cannot use are disabled with the
+cluster's own reason, for example *"RBAC: allowed by RoleBinding
+\"kmate-devs-view/shop\" of ClusterRole \"view\" to Group \"kmate-devs\""*.
+
+**Without impersonation** (`rbac.impersonate=false`) every request runs as the agent's
+ServiceAccount. Everyone who can reach a cluster shares its permissions, the cluster
+audit log shows only the agent, and access reviews come back marked *shared identity*
+so the interface can say so rather than implying the permission is personal. The
+cluster list shows a **shared identity** badge in that state.
+
+## Agent mutual TLS
+
+The hub runs its own certificate authority, generated on first start and persisted,
+so certificates already issued keep validating across restarts. The root lives for ten
+years; agent certificates live for 30 days and renew automatically.
+
+At enrolment the agent generates a keypair locally and sends only a certificate
+signing request, so the private half of its identity never reaches the hub. The hub
+names the certificate from the enrolment it just validated and ignores whatever the
+request asks for, which means an agent cannot obtain a certificate for another
+cluster. Both ids appear as SANs:
+
+```
+Subject: O=KMate, OU=agent, CN=<cluster id>
+X509v3 Subject Alternative Name:
+    URI:kmate://cluster/<cluster id>, URI:kmate://agent/<agent id>
+X509v3 Extended Key Usage: TLS Web Client Authentication
+```
+
+On the agent listener a presented certificate is verified against that root and is the
+stronger claim: the connection is attributed to the cluster named in the certificate,
+and a `Hello` that disagrees is rejected.
+
+`KMATE_AGENT_MTLS` controls enforcement:
+
+| Mode | A certificate | No certificate |
+|------|---------------|----------------|
+| `off` | ignored, none issued | bearer token accepted |
+| `optional` (default) | verified and used | bearer token accepted |
+| `required` | verified and used | **refused**: *"this hub requires agent mTLS; re-enroll to obtain a certificate"* |
+
+**Rotating a fleet.** Leave the default while you upgrade. An agent that enrolled
+before mTLS existed connects on its bearer token, then asks for its first certificate
+over that same tunnel within seconds, because the connection is already attributed to
+a cluster. No new enrolment tokens, no redeploy. Renewal afterwards happens at two
+thirds of the certificate's life by the same route. Watch
+`kmate_agent_cert_expiry_seconds`, and once every agent reports one, set
+`KMATE_AGENT_MTLS=required` so a stolen bearer token is no longer enough.
+
+A renewed certificate takes effect on the agent's next reconnect, so rotation never
+interrupts a client session.
 
 ## Single sign-on
 
@@ -165,6 +258,23 @@ account first and login matches on the username claim.
 `KMATE_LOCAL_LOGIN=false` disables passwords entirely, but is ignored when no
 issuer is configured so a misconfiguration cannot lock everyone out. Keep one
 local administrator until SSO is proven.
+
+## Enrolment tokens
+
+- A token is **single use**. The first agent to enrol with it consumes it; every later
+  attempt is refused with `enrollment token has already been used`. The claim is one
+  atomic statement, so two agents racing cannot both win.
+- Tokens expire after **24 hours** whether used or not.
+- **One live token per cluster.** Issuing a replacement invalidates any outstanding
+  unused token, so rotating a leaked token actually revokes it.
+- An agent that still holds its identity (Secret `kmate-agent-identity`, or the file
+  named by `--identity-file`) **never needs a token again**. Tokens are only for first
+  contact.
+- Lost that identity? An admin issues a replacement from the cluster's actions menu, or
+  via `HubService.IssueEnrollmentToken`. The action is audited as `cluster.token.issue`.
+- When an agent displaces another live agent for the same cluster the hub logs a warning
+  and writes an audit row. A rolling restart looks identical to a takeover, so the audit
+  log is how you tell them apart.
 
 ## Transport
 

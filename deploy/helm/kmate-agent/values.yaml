@@ -27,7 +27,11 @@ rbac:
   secretsRead: true
   write: false
   exec: false
-  impersonate: false
+  # On by default: with impersonation the agent acts as the signed-in user, so
+  # your own Kubernetes RBAC decides what each person may do and the cluster
+  # audit log names them. Turn it off only where the agent may not be granted
+  # the impersonate verb; everyone then shares the agent's permissions.
+  impersonate: true
 
 # The agent keeps informer caches in memory, so its footprint scales with the
 # number of objects in the cluster, not with how many people are looking at it.
