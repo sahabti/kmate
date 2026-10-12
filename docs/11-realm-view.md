@@ -294,8 +294,8 @@ and R3 against GKE.
 
 ## 10. Implementation notes (R0/R1, 2026-09-29)
 
-Code: `apps/web/src/realm/` — `assets.ts` (loader), `camera.ts`, `PixiCanvas.tsx`, `world.ts` (+ `world.test.ts`),
-`renderer.ts`, `RealmView.tsx`, `Gallery.tsx` (dev page at `/c/:id/realm/gallery?filter=<ids>&zoom=<1-4>`).
+Code: `apps/web/src/features/realm/` — `lib/camera.ts`, `components/pixi-canvas.tsx`, `lib/world.ts` (+ `world.test.ts`),
+`lib/renderer.ts`, `components/realm-view-page.tsx`, `components/realm-gallery-page.tsx` (dev page at `/c/:id/realm/gallery?filter=<ids>&zoom=<1-4>`).
 Manifest: `apps/web/realm/manifest.json` (69 entries); copy script `apps/web/scripts/realm-assets.mjs`
 (runs in `predev`/`prebuild`, honours `KMATE_ASSETS_DIR`, refuses `Cute_Fantasy_Free`).
 
@@ -331,7 +331,7 @@ Deviations from the design:
 
 ### R2 · Life — implementation notes (2026-09-29)
 
-**Actor system** (`apps/web/src/realm/actors.ts`): one `AnimatedSprite` per pod with a
+**Actor system** (`apps/web/src/features/realm/lib/actors.ts`): one `AnimatedSprite` per pod with a
 state machine `idle ⇄ wander · walkin · walk · work · hurt · dying → fading · leaving · gone`.
 All actors are advanced from one ticker call; off-screen actors (viewport + 96 px margin)
 are hidden and skipped; animation phase is offset by `fnv1a(uid)` so villagers never step

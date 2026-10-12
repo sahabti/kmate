@@ -1,5 +1,5 @@
 import * as React from "react";
-import { errorMessage } from "@/api/client";
+import { errorMessage } from "@/services/api-client";
 import { Spinner } from "@/components/spinner";
 import { ErrorCallout } from "@/components/status";
 import {
@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 /*
  * Adapted from Hirael's `confirm` component. KMate adds two things:
@@ -51,12 +50,12 @@ export type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>;
 
 const ConfirmContext = React.createContext<ConfirmFn | null>(null);
 
-export function useConfirm(): ConfirmFn {
+export const useConfirm = (): ConfirmFn => {
   const ctx = React.useContext(ConfirmContext);
   if (!ctx) throw new Error("useConfirm must be used inside <ConfirmProvider>");
 
   return ctx;
-}
+};
 
 interface ConfirmRequest {
   options: ConfirmOptions;
@@ -65,8 +64,12 @@ interface ConfirmRequest {
 
 const CLOSE_DURATION = 200;
 
+interface ConfirmProviderProps {
+  children: React.ReactNode;
+}
+
 /** Mount once near the root. Calls made while a dialog is open queue behind it. */
-export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+export const ConfirmProvider = ({ children }: ConfirmProviderProps) => {
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -165,7 +168,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         >
           <AlertDialogHeader>
             {options.icon != null && (
-              <AlertDialogMedia className={cn(tone === "destructive" && "bg-destructive/10 text-destructive")}>{options.icon}</AlertDialogMedia>
+              <AlertDialogMedia>{options.icon}</AlertDialogMedia>
             )}
             <AlertDialogTitle>{options.title ?? "Are you sure?"}</AlertDialogTitle>
             {options.description != null && <AlertDialogDescription>{options.description}</AlertDialogDescription>}
@@ -189,7 +192,6 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   autoCapitalize="off"
                   spellCheck={false}
                   disabled={pending}
-                  className="font-mono"
                 />
                 {!phraseOk && typed.length > 0 && <FieldDescription>The text does not match yet.</FieldDescription>}
               </Field>
@@ -207,4 +209,4 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       </AlertDialog>
     </ConfirmContext.Provider>
   );
-}
+};
