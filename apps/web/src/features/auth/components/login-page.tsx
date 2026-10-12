@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowRight, CircleAlert, Waypoints } from "lucide-react";
+import { ArrowRight, CircleAlert } from "lucide-react";
 import { hub, errorMessage } from "@/services/api-client";
 import { Callout, CalloutDescription, CalloutTitle } from "@/components/callout";
+import { LogoTile } from "@/components/logo";
 import { PasswordInput, PasswordInputField } from "@/components/password-input";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
@@ -55,9 +56,7 @@ export const LoginPage = () => {
       <div className="w-full max-w-sm">
         <div className={cn(ENTER, "rounded-lg border bg-card shadow-[6px_6px_0_0_var(--border)]")}>
           <div className="flex flex-col items-center gap-3 border-b px-8 pt-8 pb-6">
-            <div className={cn(ENTER, "flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground")}>
-              <Waypoints className="size-5" />
-            </div>
+            <LogoTile className={cn(ENTER, "size-11")} />
             <div className="flex flex-col items-center gap-1 text-center">
               <h1 style={stagger(1)} className={cn(ENTER, "text-2xl font-semibold tracking-tight")}>
                 KMate

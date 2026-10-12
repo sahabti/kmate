@@ -98,6 +98,10 @@ Two levels, like Cloudflare's account and zone dashboards, both in `components/a
 | Top bar | sidebar toggle, breadcrumb, account menu | same, plus namespace picker and filter |
 | Body | centred, `max-w-6xl`, `px-4 py-6 md:px-8` | full width, `px-4 py-6 md:px-8` |
 
+- Brand: `components/logo.tsx` (`Logo`, `LogoMark`, `LogoTile`), after Hirael's logo system. One
+  monochrome mark in `currentColor`; never recolour it or put it on a coloured square.
+  `public/favicon.svg` draws the same path, so change both together. Clusters get an initials
+  tile, not the brand mark.
 - The account menu (settings, theme, sign out) lives only in the top bar avatar.
 - Controls in a bar use the **default size** (`h-8`): buttons, inputs, input groups, pickers.
   Don't mix `size="sm"` controls into a bar.

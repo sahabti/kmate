@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   Sun,
   Users as UsersIcon,
-  Waypoints,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -36,7 +35,7 @@ import { useClusters } from "@/hooks/use-clusters";
 import { NAV_GROUPS, NAV_SINGLE, resourcePath } from "@/features/explorer/lib/nav";
 import { ResourceDrawer } from "@/features/explorer/components/resource-drawer";
 import { NamespacePicker } from "@/components/namespace-picker";
-import { AppSidebarProvider, AppTopBar } from "@/components/app-shell";
+import { AppSidebarProvider, AppTopBar, initials } from "@/components/app-shell";
 import { Kbd } from "@/components/kbd";
 import { Dot } from "@/components/tone";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -253,6 +252,17 @@ const ClusterSidebar = ({ clusterId }: ClusterSidebarProps) => {
   );
 };
 
+interface ClusterTileProps {
+  name: string;
+}
+
+/** Initials tile for a cluster, after Hirael's tenant switcher; the KMate mark stays the brand's. */
+const ClusterTile = ({ name }: ClusterTileProps) => (
+  <span aria-hidden className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-input bg-linear-to-b from-card to-card/80 text-xs font-semibold text-foreground shadow-sm">
+    {initials(name.replace(/[-_.]+/g, " "))}
+  </span>
+);
+
 interface ClusterSwitcherProps {
   clusterId: string;
 }
@@ -281,9 +291,7 @@ const ClusterSwitcher = ({ clusterId }: ClusterSwitcherProps) => {
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <SidebarMenuButton size="lg" tooltip={current?.name ?? "Cluster"} aria-label="Switch cluster">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Waypoints className="size-4" />
-              </div>
+              <ClusterTile name={current?.name ?? ""} />
               <div className="grid flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-medium">{current?.name ?? "Cluster"}</span>
                 <span className="truncate text-xs text-muted-foreground">{current ? caption(current) : "Loading…"}</span>
@@ -543,7 +551,7 @@ const CommandPalette = ({ clusterId }: CommandPaletteProps) => {
             </CommandItem>
           ))}
           <CommandItem onSelect={() => go("/")}>
-            <Waypoints /> All clusters
+            <LayoutList /> All clusters
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />

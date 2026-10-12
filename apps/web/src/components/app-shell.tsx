@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LogOut, Moon, Server, Settings, Sun, Users, Waypoints, type LucideIcon } from "lucide-react";
+import { LogOut, Moon, Server, Settings, Sun, Users, type LucideIcon } from "lucide-react";
 import { hub } from "@/services/api-client";
+import { LogoTile } from "@/components/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
@@ -148,9 +149,7 @@ const HubBrand = () => {
       <SidebarMenuItem>
         <SidebarMenuButton size="lg" asChild tooltip="KMate">
           <Link to="/">
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Waypoints className="size-4" />
-            </div>
+            <LogoTile />
             <div className="grid flex-1 text-start text-sm leading-tight">
               <span className="truncate font-medium">KMate</span>
               <span className="truncate text-xs text-muted-foreground">Hub</span>
