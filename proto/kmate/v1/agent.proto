@@ -25,7 +25,7 @@ message EnrollResponse {
   string agent_id = 1;
   string cluster_id = 2;
   bytes cert_pem = 3;
-  bytes key_pem = 4;   // only when csr_pem was empty
+  bytes key_pem = 4; // only when csr_pem was empty
   bytes ca_pem = 5;
   string agent_token = 6; // bearer used in dev/plaintext mode instead of mTLS
 }
@@ -133,7 +133,9 @@ message Response {
 // ---- resource requests ----
 
 message DiscoverRequest {}
-message DiscoverResponse { repeated APIResource resources = 1; }
+message DiscoverResponse {
+  repeated APIResource resources = 1;
+}
 
 message ListRequest {
   GVR gvr = 1;
@@ -145,8 +147,12 @@ message ListResponse {
   string continue = 3;
 }
 
-message GetRequest { ObjectRef ref = 1; }
-message GetResponse { KubeObject object = 1; }
+message GetRequest {
+  ObjectRef ref = 1;
+}
+message GetResponse {
+  KubeObject object = 1;
+}
 
 message WatchRequest {
   GVR gvr = 1;
@@ -155,7 +161,7 @@ message WatchRequest {
 
 enum EventType {
   EVENT_TYPE_UNSPECIFIED = 0;
-  EVENT_TYPE_SYNC = 1;     // initial batch complete marker (object empty) or initial items
+  EVENT_TYPE_SYNC = 1; // initial batch complete marker (object empty) or initial items
   EVENT_TYPE_ADDED = 2;
   EVENT_TYPE_MODIFIED = 3;
   EVENT_TYPE_DELETED = 4;
@@ -170,19 +176,23 @@ message WatchEvent {
 }
 
 message ApplyRequest {
-  KubeObject object = 1;      // json body; gvr derived from apiVersion/kind
+  KubeObject object = 1; // json body; gvr derived from apiVersion/kind
   bool force = 2;
   string field_manager = 3;
   bool dry_run = 4;
 }
-message ApplyResponse { KubeObject object = 1; }
+message ApplyResponse {
+  KubeObject object = 1;
+}
 
 message PatchRequest {
   ObjectRef ref = 1;
   string patch_type = 2; // "application/merge-patch+json" | "application/json-patch+json" | "application/strategic-merge-patch+json"
   bytes patch = 3;
 }
-message PatchResponse { KubeObject object = 1; }
+message PatchResponse {
+  KubeObject object = 1;
+}
 
 message DeleteRequest {
   ObjectRef ref = 1;
@@ -195,9 +205,13 @@ message ScaleRequest {
   ObjectRef ref = 1;
   int32 replicas = 2;
 }
-message ScaleResponse { int32 replicas = 1; }
+message ScaleResponse {
+  int32 replicas = 1;
+}
 
-message RolloutRestartRequest { ObjectRef ref = 1; }
+message RolloutRestartRequest {
+  ObjectRef ref = 1;
+}
 message RolloutRestartResponse {}
 
 message LogsRequest {
@@ -241,10 +255,16 @@ message Resize {
 }
 
 message CatalogRequest {}
-message CatalogResponse { Catalog catalog = 1; }
-message CatalogSnapshot { Catalog catalog = 1; }
+message CatalogResponse {
+  Catalog catalog = 1;
+}
+message CatalogSnapshot {
+  Catalog catalog = 1;
+}
 
-message HelmListRequest { string namespace = 1; }
+message HelmListRequest {
+  string namespace = 1;
+}
 message HelmRelease {
   string name = 1;
   string namespace = 2;
@@ -255,7 +275,9 @@ message HelmRelease {
   string app_version = 7;
   string updated = 8;
 }
-message HelmListResponse { repeated HelmRelease releases = 1; }
+message HelmListResponse {
+  repeated HelmRelease releases = 1;
+}
 
 message HelmGetRequest {
   string namespace = 1;
@@ -264,16 +286,16 @@ message HelmGetRequest {
 }
 message HelmGetResponse {
   HelmRelease release = 1;
-  string values_yaml = 2;        // user-supplied values (config)
-  string chart_values_yaml = 3;  // chart defaults
-  string manifest = 4;           // rendered manifest
+  string values_yaml = 2; // user-supplied values (config)
+  string chart_values_yaml = 3; // chart defaults
+  string manifest = 4; // rendered manifest
   string notes = 5;
   repeated HelmRelease history = 6; // all revisions, newest first
   string description = 7;
 }
 
 message MetricsRequest {
-  string kind = 1;       // "pods" | "nodes"
+  string kind = 1; // "pods" | "nodes"
   string namespace = 2;
 }
 message MetricSample {
@@ -283,7 +305,9 @@ message MetricSample {
   int64 cpu_millicores = 4;
   int64 memory_bytes = 5;
 }
-message MetricsResponse { repeated MetricSample samples = 1; }
+message MetricsResponse {
+  repeated MetricSample samples = 1;
+}
 
 // ResourceAttributes mirrors authorization.k8s.io ResourceAttributes: one
 // "can I do <verb> on <resource>" question.
@@ -307,8 +331,14 @@ message AccessReviewResult {
 // uses SelfSubjectAccessReview with the impersonated client, which is exactly
 // what `kubectl auth can-i` does. Without impersonation the answers describe the
 // agent's own ServiceAccount and carry reason "shared identity".
-message AccessReviewRequest { repeated ResourceAttributes items = 1; }
-message AccessReviewResponse { repeated AccessReviewResult results = 1; }
+message AccessReviewRequest {
+  repeated ResourceAttributes items = 1;
+}
+message AccessReviewResponse {
+  repeated AccessReviewResult results = 1;
+}
 
 message ClusterInfoRequest {}
-message ClusterInfoResponse { ClusterInfo info = 1; }
+message ClusterInfoResponse {
+  ClusterInfo info = 1;
+}

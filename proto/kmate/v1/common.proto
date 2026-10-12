@@ -14,8 +14,8 @@ message Identity {
 
 // Group/Version/Resource of a Kubernetes API resource.
 message GVR {
-  string group = 1;    // "" for core
-  string version = 2;  // "v1"
+  string group = 1; // "" for core
+  string version = 2; // "v1"
   string resource = 3; // "pods"
 }
 
@@ -26,12 +26,12 @@ message ObjectRef {
 }
 
 message ListOptions {
-  string namespace = 1;        // "" = all namespaces
+  string namespace = 1; // "" = all namespaces
   string label_selector = 2;
   string field_selector = 3;
   int32 limit = 4;
   string continue = 5;
-  bool columns_only = 6;       // return a trimmed projection suitable for tables
+  bool columns_only = 6; // return a trimmed projection suitable for tables
 }
 
 // A Kubernetes object encoded as JSON, plus extracted metadata for cheap indexing.
@@ -46,8 +46,8 @@ message KubeObject {
 }
 
 message Error {
-  int32 code = 1;      // HTTP-ish status (403, 404, 500...)
-  string reason = 2;   // Kubernetes StatusReason when available
+  int32 code = 1; // HTTP-ish status (403, 404, 500...)
+  string reason = 2; // Kubernetes StatusReason when available
   string message = 3;
 }
 
@@ -64,8 +64,8 @@ message APIResource {
 message ClusterInfo {
   string name = 1;
   string kubernetes_version = 2;
-  string platform = 3;         // e.g. "gke", "eks", "kind", "k3s", "unknown"
-  string cluster_uid = 4;      // kube-system namespace UID
+  string platform = 3; // e.g. "gke", "eks", "kind", "k3s", "unknown"
+  string cluster_uid = 4; // kube-system namespace UID
   int32 node_count = 5;
   int32 pod_count = 6;
   int32 namespace_count = 7;

@@ -70,14 +70,16 @@ message ClusterGrant {
   string id = 1;
   string user_id = 2;
   string cluster_id = 3;
-  string cluster_name = 4;   // read-only convenience
-  string role = 5;           // admin | operator | viewer
+  string cluster_name = 4; // read-only convenience
+  string role = 5; // admin | operator | viewer
   repeated string namespaces = 6;
   google.protobuf.Timestamp created_at = 7;
 }
 
 message ListUsersRequest {}
-message ListUsersResponse { repeated User users = 1; }
+message ListUsersResponse {
+  repeated User users = 1;
+}
 
 message CreateUserRequest {
   string email = 1;
@@ -87,7 +89,9 @@ message CreateUserRequest {
   string k8s_user = 5;
   repeated string k8s_groups = 6;
 }
-message CreateUserResponse { User user = 1; }
+message CreateUserResponse {
+  User user = 1;
+}
 
 // UpdateUser changes the fields whose *_set companion is true.
 message UpdateUserRequest {
@@ -103,22 +107,30 @@ message UpdateUserRequest {
   bool active = 10;
   bool active_set = 11;
 }
-message UpdateUserResponse { User user = 1; }
+message UpdateUserResponse {
+  User user = 1;
+}
 
-message DeleteUserRequest { string id = 1; }
+message DeleteUserRequest {
+  string id = 1;
+}
 message DeleteUserResponse {}
 
 // SetPassword: an admin may set anyone's password; a user may set their own by
 // supplying current_password.
 message SetPasswordRequest {
-  string user_id = 1;  // empty = yourself
+  string user_id = 1; // empty = yourself
   string current_password = 2;
   string new_password = 3;
 }
 message SetPasswordResponse {}
 
-message ListGrantsRequest { string user_id = 1; } // empty = yourself
-message ListGrantsResponse { repeated ClusterGrant grants = 1; }
+message ListGrantsRequest {
+  string user_id = 1;
+} // empty = yourself
+message ListGrantsResponse {
+  repeated ClusterGrant grants = 1;
+}
 
 message SetGrantRequest {
   string user_id = 1;
@@ -126,7 +138,9 @@ message SetGrantRequest {
   string role = 3;
   repeated string namespaces = 4;
 }
-message SetGrantResponse { ClusterGrant grant = 1; }
+message SetGrantResponse {
+  ClusterGrant grant = 1;
+}
 
 message DeleteGrantRequest {
   string user_id = 1;
@@ -135,11 +149,13 @@ message DeleteGrantRequest {
 message DeleteGrantResponse {}
 
 message MeRequest {}
-message MeResponse { User user = 1; }
+message MeResponse {
+  User user = 1;
+}
 
 enum ClusterStatus {
   CLUSTER_STATUS_UNSPECIFIED = 0;
-  CLUSTER_STATUS_PENDING = 1;   // created, agent never connected
+  CLUSTER_STATUS_PENDING = 1; // created, agent never connected
   CLUSTER_STATUS_ONLINE = 2;
   CLUSTER_STATUS_OFFLINE = 3;
 }
@@ -151,17 +167,25 @@ message Cluster {
   ClusterInfo info = 4;
   google.protobuf.Timestamp last_heartbeat = 5;
   google.protobuf.Timestamp created_at = 6;
-  bool shared_identity = 7;  // agent cannot impersonate
+  bool shared_identity = 7; // agent cannot impersonate
   repeated string capabilities = 8;
 }
 
 message ListClustersRequest {}
-message ListClustersResponse { repeated Cluster clusters = 1; }
+message ListClustersResponse {
+  repeated Cluster clusters = 1;
+}
 
-message GetClusterRequest { string id = 1; }
-message GetClusterResponse { Cluster cluster = 1; }
+message GetClusterRequest {
+  string id = 1;
+}
+message GetClusterResponse {
+  Cluster cluster = 1;
+}
 
-message CreateClusterRequest { string name = 1; }
+message CreateClusterRequest {
+  string name = 1;
+}
 message CreateClusterResponse {
   Cluster cluster = 1;
   string enrollment_token = 2;
@@ -169,14 +193,18 @@ message CreateClusterResponse {
   string agent_addr = 4;
 }
 
-message IssueEnrollmentTokenRequest { string cluster_id = 1; }
+message IssueEnrollmentTokenRequest {
+  string cluster_id = 1;
+}
 message IssueEnrollmentTokenResponse {
   string enrollment_token = 1;
   string helm_command = 2;
   string agent_addr = 3;
 }
 
-message DeleteClusterRequest { string id = 1; }
+message DeleteClusterRequest {
+  string id = 1;
+}
 message DeleteClusterResponse {}
 
 message WatchClustersRequest {}
@@ -198,4 +226,6 @@ message ListAuditEventsRequest {
   string cluster_id = 1;
   int32 limit = 2;
 }
-message ListAuditEventsResponse { repeated AuditEvent events = 1; }
+message ListAuditEventsResponse {
+  repeated AuditEvent events = 1;
+}
