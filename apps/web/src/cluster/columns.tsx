@@ -27,11 +27,48 @@ function metricColumns(clusterId: string | undefined, kind: "pods" | "nodes"): C
   ];
 }
 
-const name: Column<KObj> = { id: "name", header: "Name", cell: (o) => <span className="font-medium">{o.metadata?.name}</span>, width: "minmax(220px,2fr)" };
-const ns: Column<KObj> = { id: "ns", header: "Namespace", cell: (o) => <span className="text-muted-foreground">{o.metadata?.namespace}</span>, width: "minmax(140px,1fr)" };
-const ageCol: Column<KObj> = { id: "age", header: "Age", cell: (o) => <span className="text-muted-foreground">{age(o.metadata?.creationTimestamp)}</span>, width: "70px" };
+const name: Column<KObj> = { id: "name", header: "Name", cell: (o) => <span className="font-medium">{o.metadata?.name}</span>, width: "minmax(220px,2fr)", value: (o) => o.metadata?.name };
+const ns: Column<KObj> = { id: "ns", header: "Namespace", cell: (o) => <span className="text-muted-foreground">{o.metadata?.namespace}</span>, width: "minmax(140px,1fr)", value: (o) => o.metadata?.namespace };
+const absolute = (ts: string | undefined) => (ts ? new Date(ts).toLocaleString() : undefined);
+const ageCol: Column<KObj> = {
+  id: "age",
+  header: "Age",
+  cell: (o) => <span className="text-muted-foreground">{age(o.metadata?.creationTimestamp)}</span>,
+  width: "80px",
+  // Ascending age means youngest first.
+  value: (o) => (o.metadata?.creationTimestamp ? -Date.parse(o.metadata.creationTimestamp) : undefined),
+  title: (o) => absolute(o.metadata?.creationTimestamp),
+};
+
+/** Counts that read as plain integers are right-aligned quantities. */
+const COUNT_IDS = new Set(["restarts", "upd", "avail", "desired", "keys", "count", "cur"]);
+
+/**
+ * Fill in what most columns share: a sort key and hover text from a plain-text
+ * cell, and right alignment for counts and metrics.
+ */
+function finish(cols: Column<KObj>[]): Column<KObj>[] {
+  return cols.map((c) => {
+    const quantity = COUNT_IDS.has(c.id) || c.id === "cpu" || c.id === "mem";
+    let value = c.value;
+    if (!value && !quantity) {
+      value = (o) => {
+        const v = c.cell(o);
+
+        return typeof v === "string" ? v : undefined;
+      };
+    }
+    if (!value && COUNT_IDS.has(c.id)) value = (o) => Number(c.cell(o));
+
+    return { ...c, value, align: c.align ?? (quantity ? "end" : undefined) };
+  });
+}
 
 export function columnsFor(resource: string, namespaced: boolean, clusterId?: string): Column<KObj>[] {
+  return finish(baseColumns(resource, namespaced, clusterId));
+}
+
+function baseColumns(resource: string, namespaced: boolean, clusterId?: string): Column<KObj>[] {
   const base = namespaced ? [name, ns] : [name];
   switch (resource) {
     case "pods":
@@ -42,6 +79,7 @@ export function columnsFor(resource: string, namespaced: boolean, clusterId?: st
           id: "status",
           header: "Status",
           width: "160px",
+          value: (o) => podStatus(o).text,
           cell: (o) => {
             const s = podStatus(o);
             return (
@@ -116,6 +154,7 @@ export function columnsFor(resource: string, namespaced: boolean, clusterId?: st
           id: "status",
           header: "Status",
           width: "180px",
+          value: (o) => nodeStatus(o),
           cell: (o) => {
             const s = nodeStatus(o);
             return (
@@ -138,9 +177,16 @@ export function columnsFor(resource: string, namespaced: boolean, clusterId?: st
         { id: "reason", header: "Reason", cell: (o) => o.reason ?? "", width: "160px" },
         { id: "obj", header: "Object", cell: (o) => `${o.involvedObject?.kind ?? ""}/${o.involvedObject?.name ?? ""}`, width: "minmax(180px,1fr)", mono: true },
         ns,
-        { id: "msg", header: "Message", cell: (o) => <span title={o.message}>{o.message}</span>, width: "minmax(300px,3fr)" },
+        { id: "msg", header: "Message", cell: (o) => o.message ?? "", width: "minmax(300px,3fr)" },
         { id: "count", header: "Count", cell: (o) => String(o.count ?? 1), width: "60px", mono: true },
-        { id: "last", header: "Last seen", cell: (o) => age(o.lastTimestamp ?? o.eventTime), width: "90px" },
+        {
+          id: "last",
+          header: "Last seen",
+          cell: (o) => age(o.lastTimestamp ?? o.eventTime),
+          width: "90px",
+          value: (o) => -Date.parse(o.lastTimestamp ?? o.eventTime ?? "") || undefined,
+          title: (o) => absolute(o.lastTimestamp ?? o.eventTime),
+        },
       ];
     case "persistentvolumeclaims":
       return [

@@ -1,33 +1,26 @@
-import { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
-import { Boxes, Cpu, FolderTree, KeyRound, MoreHorizontal, Plus, Server, Settings, Trash2, Waypoints } from "lucide-react";
+import { ArrowRight, KeyRound, MoreHorizontal, Plus, Search, Server, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { hub, errorMessage } from "@/api/client";
 import { useClusters } from "@/api/hooks";
 import { CodeBlock, CodeBlockContent, CodeBlockHeader } from "@/components/code-block";
 import { Callout, CalloutDescription, CalloutTitle } from "@/components/callout";
 import { CopyButton } from "@/components/copy-button";
+import { HubShell, PageHeader } from "@/components/HubShell";
 import { RelativeTime } from "@/components/relative-time";
-import { EmptyState, ErrorCallout, Loading } from "@/components/status";
+import { EmptyState, ErrorCallout } from "@/components/status";
+import { DataTable, type Column } from "@/components/Table";
 import { ToneBadge, type Tone } from "@/components/tone";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { useConfirm } from "@/components/confirm";
 import { Spinner } from "@/components/spinner";
 import { ClusterStatus, type Cluster, type CreateClusterResponse, type IssueEnrollmentTokenResponse } from "@/gen/kmate/v1/hub_pb";
 import { useSession } from "@/store/session";
@@ -48,151 +41,161 @@ export function statusTone(s: ClusterStatus): { tone: Tone; label: string } {
 export function ClustersPage() {
   const { clusters, loaded, error } = useClusters();
   const [adding, setAdding] = useState(false);
-  const user = useSession((s) => s.user);
+  const [reissue, setReissue] = useState<Cluster | null>(null);
+  const [q, setQ] = useState("");
+  const isAdmin = useSession((s) => s.user?.role) === "admin";
+  const confirm = useConfirm();
   const nav = useNavigate();
 
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Waypoints className="size-5" />
-          </div>
-          <div>
-            <h1 className="text-base leading-tight font-semibold">Clusters</h1>
-            <div className="text-xs text-muted-foreground">{user?.email}</div>
-          </div>
+  const rows = useMemo(() => {
+    const t = q.trim().toLowerCase();
+
+    return t ? clusters.filter((c) => `${c.name} ${c.info?.platform ?? ""} ${c.info?.kubernetesVersion ?? ""}`.toLowerCase().includes(t)) : clusters;
+  }, [clusters, q]);
+
+  const remove = (c: Cluster) =>
+    confirm({
+      title: `Remove cluster ${c.name}?`,
+      description: "Everyone loses access to it through KMate, and its agent is rejected until it is enrolled again. Nothing changes inside the cluster itself.",
+      confirmText: "Remove cluster",
+      tone: "destructive",
+      typeToConfirm: c.name,
+      onConfirm: async () => {
+        await hub.deleteCluster({ id: c.id });
+        toast.success(`Removed cluster ${c.name}`);
+      },
+    });
+
+  const columns: Column<Cluster>[] = [
+    {
+      id: "name",
+      header: "Name",
+      width: "minmax(220px,2fr)",
+      value: (c) => c.name,
+      cell: (c) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate font-medium">{c.name}</span>
+          <span className="truncate text-xs text-muted-foreground">{c.info?.platform || "kubernetes"}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon-sm" asChild aria-label="Settings">
-            <Link to="/settings">
-              <Settings />
-            </Link>
-          </Button>
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Plus /> Add cluster
-          </Button>
-        </div>
-      </header>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      width: "130px",
+      value: (c) => statusTone(c.status).label,
+      cell: (c) => {
+        const st = statusTone(c.status);
 
-      <ErrorCallout message={error} />
-      {!loaded && <Loading label="Loading clusters…" />}
-      {loaded && clusters.length === 0 && (
-        <EmptyState
-          icon={<Server />}
-          title="No clusters yet"
-          hint="Register a cluster to get an enrollment token, then install the KMate agent with Helm. The agent dials out to this hub; no kubeconfig needed here."
-          action={
-            <Button onClick={() => setAdding(true)}>
-              <Plus /> Add cluster
-            </Button>
-          }
-        />
-      )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {clusters.map((c) => (
-          <ClusterCard key={c.id} c={c} onOpen={() => nav({ to: "/c/$clusterId", params: { clusterId: c.id } })} />
-        ))}
-      </div>
-
-      <AddClusterDialog open={adding} onClose={() => setAdding(false)} />
-    </div>
-  );
-}
-
-function ClusterCard({ c, onOpen }: { c: Cluster; onOpen: () => void }) {
-  const st = statusTone(c.status);
-  const info = c.info;
-  const hb = c.lastHeartbeat ? timestampDate(c.lastHeartbeat) : null;
-  const [confirm, setConfirm] = useState(false);
-  const [reissue, setReissue] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const isAdmin = useSession((s) => s.user?.role) === "admin";
-
-  const del = async () => {
-    setBusy(true);
-    try {
-      await hub.deleteCluster({ id: c.id });
-      toast.success(`Removed cluster ${c.name}`);
-    } catch (err) {
-      toast.error(errorMessage(err));
-    } finally {
-      setBusy(false);
-      setConfirm(false);
-    }
-  };
-
-  return (
-    <Card
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className="cursor-pointer gap-3 py-4 transition-colors hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring/50"
-    >
-      <CardHeader className="flex items-start justify-between gap-2 px-4">
-        <div className="min-w-0">
-          <div className="truncate font-semibold">{c.name}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {info?.platform || "kubernetes"} · {info?.kubernetesVersion || "—"}
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
+        return (
           <ToneBadge tone={st.tone} dot>
             {st.label}
           </ToneBadge>
+        );
+      },
+    },
+    { id: "version", header: "Version", width: "120px", mono: true, value: (c) => c.info?.kubernetesVersion || undefined, cell: (c) => c.info?.kubernetesVersion || "—" },
+    { id: "nodes", header: "Nodes", width: "90px", align: "end", value: (c) => c.info?.nodeCount ?? 0, cell: (c) => c.info?.nodeCount ?? 0 },
+    { id: "pods", header: "Pods", width: "90px", align: "end", value: (c) => c.info?.podCount ?? 0, cell: (c) => c.info?.podCount ?? 0 },
+    {
+      id: "heartbeat",
+      header: "Last heartbeat",
+      width: "150px",
+      value: (c) => (c.lastHeartbeat ? -timestampDate(c.lastHeartbeat).getTime() : undefined),
+      title: (c) => (c.lastHeartbeat ? timestampDate(c.lastHeartbeat).toLocaleString() : undefined),
+      cell: (c) => <span className="text-muted-foreground">{c.lastHeartbeat ? <RelativeTime date={timestampDate(c.lastHeartbeat)} format="short" /> : "Never"}</span>,
+    },
+    {
+      id: "actions",
+      header: "",
+      width: "56px",
+      cell: (c) => (
+        // Row clicks open the cluster; the menu must not.
+        <div className="flex justify-end" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon-xs" aria-label="Cluster actions">
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${c.name}`}>
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuItem onSelect={() => void nav({ to: "/c/$clusterId", params: { clusterId: c.id } })}>
+                <ArrowRight /> Open cluster
+              </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem onSelect={() => setReissue(true)}>
-                  <KeyRound /> Issue new enrollment token
+                <DropdownMenuItem onSelect={() => setReissue(c)}>
+                  <KeyRound /> Issue new enrollment token…
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem variant="destructive" onSelect={() => setConfirm(true)}>
-                <Trash2 /> Remove cluster
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => void remove(c)}>
+                <Trash2 /> Remove cluster…
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </CardHeader>
-      <CardContent className="grid grid-cols-3 gap-2 px-4">
-        <MiniStat icon={Cpu} label="Nodes" value={info?.nodeCount ?? 0} />
-        <MiniStat icon={Boxes} label="Pods" value={info?.podCount ?? 0} />
-        <MiniStat icon={FolderTree} label="Namespaces" value={info?.namespaceCount ?? 0} />
-      </CardContent>
-      <CardFooter className="flex items-center justify-between px-4 text-[11px] text-muted-foreground">
-        <span>
-          Heartbeat {hb ? <RelativeTime date={hb} format="short" /> : "never"}
-        </span>
-        {c.sharedIdentity && (
-          <ToneBadge tone="warn" title="Agent cannot impersonate users; hub roles only">
-            shared identity
-          </ToneBadge>
+      ),
+    },
+  ];
+
+  return (
+    <HubShell>
+      <PageHeader
+        title="Clusters"
+        description="Pick a cluster to work in. Each one is reached through its own KMate agent."
+        actions={
+          <Button onClick={() => setAdding(true)}>
+            <Plus /> Add cluster
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-4">
+        <ErrorCallout message={error} />
+        {loaded && clusters.length === 0 ? (
+          <EmptyState
+            icon={<Server />}
+            title="No clusters yet"
+            hint="Register a cluster to get an enrollment token, then install the KMate agent with Helm. The agent dials out to this hub; no kubeconfig needed here."
+            action={
+              <Button onClick={() => setAdding(true)}>
+                <Plus /> Add cluster
+              </Button>
+            }
+          />
+        ) : (
+          <>
+            <InputGroup className="max-w-sm">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput placeholder="Search clusters…" aria-label="Search clusters" value={q} onChange={(e) => setQ(e.target.value)} />
+            </InputGroup>
+            <DataTable
+              rows={rows}
+              columns={columns}
+              rowKey={(c) => c.id}
+              rowLabel={(c) => `Open cluster ${c.name}`}
+              onRowClick={(c) => void nav({ to: "/c/$clusterId", params: { clusterId: c.id } })}
+              loading={!loaded}
+              empty={
+                <EmptyState
+                  title={`No clusters match "${q}"`}
+                  action={
+                    <Button variant="outline" onClick={() => setQ("")}>
+                      Clear search
+                    </Button>
+                  }
+                />
+              }
+            />
+          </>
         )}
-      </CardFooter>
+      </div>
 
-      <ReissueTokenDialog cluster={c} open={reissue} onOpenChange={setReissue} />
-
-      <AlertDialog open={confirm} onOpenChange={setConfirm}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove cluster "{c.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>The agent will be rejected until re-enrolled. Nothing is changed inside the cluster itself.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" disabled={busy} onClick={(e) => { e.preventDefault(); void del(); }}>
-              {busy ? <Spinner size="sm" /> : <Trash2 />} Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </Card>
+      <AddClusterDialog open={adding} onClose={() => setAdding(false)} />
+      {reissue && <ReissueTokenDialog cluster={reissue} open onOpenChange={(o) => !o && setReissue(null)} />}
+    </HubShell>
   );
 }
 
@@ -285,16 +288,6 @@ function ReissueTokenDialog({ cluster, open, onOpenChange }: { cluster: Cluster;
   );
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: typeof Cpu; label: string; value: number | string }) {
-  return (
-    <div className="rounded-md border bg-muted/40 px-2 py-1.5">
-      <div className="flex items-center gap-1 text-[10px] tracking-wide text-muted-foreground uppercase">
-        <Icon className="size-3" /> {label}
-      </div>
-      <div className="font-mono text-sm font-semibold tabular-nums">{value}</div>
-    </div>
-  );
-}
 
 function AddClusterDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [name, setName] = useState("");

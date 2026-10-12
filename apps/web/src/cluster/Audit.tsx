@@ -4,7 +4,7 @@ import { useAuditEvents } from "@/api/hooks";
 import { errorMessage } from "@/api/client";
 import { RelativeTime } from "@/components/relative-time";
 import { EmptyState, ErrorCallout, Loading } from "@/components/status";
-import { SimpleTable } from "@/components/Table";
+import { DataTable } from "@/components/Table";
 import { ToneBadge } from "@/components/tone";
 import { Badge } from "@/components/ui/badge";
 import type { AuditEvent } from "@/gen/kmate/v1/hub_pb";
@@ -31,7 +31,7 @@ export function AuditPage() {
       {q.isLoading && <Loading />}
       {q.data && rows.length === 0 && <EmptyState title="No audit events yet" hint="Actions such as scale, apply, delete, exec and log streaming are recorded here." />}
       {rows.length > 0 && (
-        <SimpleTable<AuditEvent>
+        <DataTable<AuditEvent>
           rows={rows}
           rowKey={(e) => e.id}
           columns={[

@@ -22,6 +22,9 @@ const CUSTOM = "__custom__";
  *  client -> server: [0x00, ...stdin bytes] | [0xFF, ...JSON {cols,rows}] (resize)
  *  server -> client: [0x01, ...stdout] | [0x02, ...stderr] | [0x03, ...error/exit text]
  */
+const xtermTheme = (theme: string) =>
+  theme === "dark" ? { background: "#0f141b", foreground: "#e2e8f0" } : { background: "#ffffff", foreground: "#0f172a", cursor: "#0f172a" };
+
 export default function ExecTerminal({ clusterId, namespace, pod, containers, canExec = true, blockedReason }: { clusterId: string; namespace: string; pod: string; containers: string[]; canExec?: boolean; blockedReason?: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
@@ -53,17 +56,21 @@ export default function ExecTerminal({ clusterId, namespace, pod, containers, ca
       cleanup?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusterId, namespace, pod, container, shell, gen, canExec, blockedReason, theme]);
+  }, [clusterId, namespace, pod, container, shell, gen, canExec, blockedReason]);
+
+  // Recolour in place: recreating the terminal would end the user's shell session.
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = xtermTheme(theme);
+  }, [theme]);
 
   function setup(): () => void {
     const host = ref.current!;
-    const dark = theme === "dark";
     const term = new XTerm({
       fontSize: 12,
       cursorBlink: true,
       convertEol: true,
       scrollback: 5000,
-      theme: dark ? { background: "#0f141b", foreground: "#e2e8f0" } : { background: "#ffffff", foreground: "#0f172a", cursor: "#0f172a" },
+      theme: xtermTheme(theme),
     });
     const fit = new FitAddon();
     term.loadAddon(fit);

@@ -10,9 +10,15 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+const MAX_LINES = 20_000;
+
 export function LogsView({ clusterId, namespace, pod, containers }: { clusterId: string; namespace: string; pod: string; containers: string[] }) {
   const [container, setContainer] = useState(containers[0] ?? "");
-  const [follow, setFollow] = useState(true);
+  const [paused, setPaused] = useState(false);
+  /** Lines that arrived while paused; shown when the user resumes. */
+  const held = useRef<string[]>([]);
+  const pausedRef = useRef(false);
+  const [heldCount, setHeldCount] = useState(0);
   const [tail, setTail] = useState(500);
   const [timestamps, setTimestamps] = useState(false);
   const [previous, setPrevious] = useState(false);
@@ -23,29 +29,54 @@ export function LogsView({ clusterId, namespace, pod, containers }: { clusterId:
   const boxRef = useRef<HTMLPreElement>(null);
   const autoScroll = useRef(true);
 
+  const push = (parts: string[]) => {
+    if (pausedRef.current) {
+      held.current.push(...parts);
+      setHeldCount(held.current.length);
+      return;
+    }
+    setLines((prev) => [...prev, ...parts].slice(-MAX_LINES));
+  };
+
+  const togglePause = () => {
+    if (pausedRef.current) {
+      const parts = held.current;
+      held.current = [];
+      setHeldCount(0);
+      autoScroll.current = true;
+      setLines((prev) => [...prev, ...parts].slice(-MAX_LINES));
+    }
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+  };
+
+  // Pausing freezes what is on screen; the stream keeps running so nothing is lost.
   useEffect(() => {
     setLines([]);
+    held.current = [];
+    setHeldCount(0);
     setError(null);
     const ac = new AbortController();
     let buf = "";
     const dec = new TextDecoder();
     (async () => {
       try {
-        const stream = cluster.logs({ clusterId, logs: { namespace, pod, container, follow, tailLines: BigInt(tail), timestamps, previous } }, { signal: ac.signal });
+        const stream = cluster.logs({ clusterId, logs: { namespace, pod, container, follow: true, tailLines: BigInt(tail), timestamps, previous } }, { signal: ac.signal });
         for await (const d of stream) {
           buf += dec.decode(d.bytes, { stream: true });
           const parts = buf.split("\n");
           buf = parts.pop() ?? "";
-          if (parts.length) setLines((prev) => [...prev, ...parts].slice(-20000));
+          if (parts.length) push(parts);
           if (d.eof) break;
         }
-        if (buf) setLines((prev) => [...prev, buf]);
+        if (buf) push([buf]);
       } catch (e) {
         if (!ac.signal.aborted) setError(errorMessage(e));
       }
     })();
     return () => ac.abort();
-  }, [clusterId, namespace, pod, container, follow, tail, timestamps, previous, gen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- push reads refs only
+  }, [clusterId, namespace, pod, container, tail, timestamps, previous, gen]);
 
   useEffect(() => {
     if (autoScroll.current && boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
@@ -85,19 +116,19 @@ export function LogsView({ clusterId, namespace, pod, containers }: { clusterId:
           ))}
         </ToggleGroup>
         <Label htmlFor="log-ts" className="flex items-center gap-1.5 text-muted-foreground">
-          <Switch id="log-ts" size="sm" checked={timestamps} onCheckedChange={setTimestamps} /> timestamps
+          <Switch id="log-ts" size="sm" checked={timestamps} onCheckedChange={setTimestamps} /> Timestamps
         </Label>
         <Label htmlFor="log-prev" className="flex items-center gap-1.5 text-muted-foreground">
-          <Switch id="log-prev" size="sm" checked={previous} onCheckedChange={setPrevious} /> previous
+          <Switch id="log-prev" size="sm" checked={previous} onCheckedChange={setPrevious} /> Previous
         </Label>
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="sm" variant={follow ? "secondary" : "outline"} onClick={() => setFollow((f) => !f)}>
-                {follow ? <Pause /> : <Play />} {follow ? "following" : "paused"}
+              <Button size="sm" variant={paused ? "secondary" : "outline"} onClick={togglePause} aria-pressed={paused}>
+                {paused ? <Play /> : <Pause />} {paused ? (heldCount ? `Resume (${heldCount} new)` : "Resume") : "Pause"}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{follow ? "Pause following" : "Follow new lines"}</TooltipContent>
+            <TooltipContent>{paused ? "Show the lines that arrived while paused" : "Freeze the output; new lines are kept"}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -120,7 +151,7 @@ export function LogsView({ clusterId, namespace, pod, containers }: { clusterId:
           <InputGroupAddon>
             <Search className="size-3.5" />
           </InputGroupAddon>
-          <InputGroupInput placeholder="search…" value={q} onChange={(e) => setQ(e.target.value)} className="text-xs" />
+          <InputGroupInput placeholder="Search…" aria-label="Search log lines" value={q} onChange={(e) => setQ(e.target.value)} className="text-xs" />
         </InputGroup>
       </div>
       {error && (

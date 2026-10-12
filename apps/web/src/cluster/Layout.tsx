@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Boxes,
+  ArrowLeft,
   Castle,
+  Check,
+  ChevronsUpDown,
   ChevronRight,
   Cpu,
   Database,
@@ -11,8 +14,8 @@ import {
   HardDrive,
   KeyRound,
   LayoutGrid,
+  LayoutList,
   ListTree,
-  Moon,
   ScrollText,
   MoreHorizontal,
   Network,
@@ -31,18 +34,17 @@ import { useAllowedNamespaces, useCluster, useClusters } from "@/api/hooks";
 import { NAV_GROUPS, NAV_SINGLE, resourcePath } from "@/cluster/nav";
 import { ResourceDrawer } from "@/cluster/ResourceDrawer";
 import { NamespacePicker } from "@/components/NamespacePicker";
+import { AppSidebarProvider, AppTopBar } from "@/components/HubShell";
 import { Kbd } from "@/components/kbd";
 import { Dot } from "@/components/tone";
-import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -54,12 +56,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarProvider,
   SidebarRail,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { statusTone } from "@/pages/Clusters";
 import { useSession } from "@/store/session";
@@ -81,33 +80,25 @@ const SINGLE_ICONS: Record<string, LucideIcon> = {
 
 export function ClusterLayout() {
   const { clusterId } = useParams({ strict: false }) as { clusterId: string };
-  const { sidebarCollapsed, toggleSidebar } = useUI();
   return (
-    <SidebarProvider
-      defaultOpen={!sidebarCollapsed}
-      onOpenChange={(open) => {
-        if (open === sidebarCollapsed) toggleSidebar();
-      }}
-      className="h-full min-h-0"
-    >
+    <AppSidebarProvider>
       <ClusterSidebar clusterId={clusterId} />
       <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
         <TopBar clusterId={clusterId} />
-        <main className="min-h-0 flex-1 overflow-hidden pb-14 md:pb-0">
+        <main data-slot="app-scroll" className="min-h-0 flex-1 overflow-auto pb-14 md:pb-0">
           <Outlet />
         </main>
         <BottomTabs clusterId={clusterId} />
       </SidebarInset>
       <ResourceDrawer clusterId={clusterId} />
       <CommandPalette clusterId={clusterId} />
-    </SidebarProvider>
+    </AppSidebarProvider>
   );
 }
 
 /* ---------------- Sidebar ---------------- */
 
 function ClusterSidebar({ clusterId }: { clusterId: string }) {
-  const user = useSession((s) => s.user);
   const loc = useLocation();
   const { isMobile, setOpenMobile } = useSidebar();
   useEffect(() => {
@@ -123,25 +114,21 @@ function ClusterSidebar({ clusterId }: { clusterId: string }) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="All clusters">
+            <SidebarMenuButton asChild size="sm" tooltip="All clusters" className="text-muted-foreground">
               <Link to="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Waypoints className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold">KMate</span>
-                  <span className="truncate text-[11px] text-muted-foreground">All clusters</span>
-                </div>
+                <ArrowLeft />
+                <span>All clusters</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <ClusterSwitcher clusterId={clusterId} />
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Overview" isActive={isActive(`/c/${clusterId}`, true)}>
                   <Link to="/c/$clusterId" params={{ clusterId }}>
@@ -163,7 +150,7 @@ function ClusterSidebar({ clusterId }: { clusterId: string }) {
         <SidebarGroup>
           <SidebarGroupLabel>Resources</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {NAV_GROUPS.map((g) => {
                 const Icon = GROUP_ICONS[g.label] ?? Boxes;
                 const groupActive = g.items.some((it) => isActive(resourcePath(clusterId, it.gvr)));
@@ -204,7 +191,7 @@ function ClusterSidebar({ clusterId }: { clusterId: string }) {
         <SidebarGroup>
           <SidebarGroupLabel>Cluster</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1">
               {NAV_SINGLE.map((it) => {
                 const to = resourcePath(clusterId, it.gvr);
                 const Icon = SINGLE_ICONS[it.gvr.resource] ?? Server;
@@ -251,23 +238,56 @@ function ClusterSidebar({ clusterId }: { clusterId: string }) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings">
-              <Link to="/settings">
-                <Settings />
-                <div className="grid flex-1 leading-tight">
-                  <span className="truncate">Settings</span>
-                  <span className="truncate text-[10px] text-muted-foreground">{user?.email}</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+/**
+ * Switch clusters without leaving the cluster shell, like an account switcher:
+ * the list of every cluster stays one click away.
+ */
+function ClusterSwitcher({ clusterId }: { clusterId: string }) {
+  const { clusters } = useClusters();
+  const current = clusters.find((c) => c.id === clusterId);
+  const { isMobile } = useSidebar();
+  const nav = useNavigate();
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton size="lg" tooltip={current?.name ?? "Cluster"}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Waypoints className="size-4" />
+              </div>
+              <div className="grid flex-1 text-start text-sm leading-tight">
+                <span className="truncate font-medium">{current?.name ?? "Cluster"}</span>
+                <span className="truncate text-xs text-muted-foreground">{current ? `${statusTone(current.status).label} · ${current.info?.kubernetesVersion || "unknown version"}` : "Loading…"}</span>
+              </div>
+              <ChevronsUpDown className="ms-auto" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side={isMobile ? "bottom" : "right"} className="w-64">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Clusters</DropdownMenuLabel>
+            {clusters.map((c) => (
+              <DropdownMenuItem key={c.id} onSelect={() => void nav({ to: "/c/$clusterId", params: { clusterId: c.id } })}>
+                <Dot tone={statusTone(c.status).tone} />
+                <span className="truncate">{c.name}</span>
+                {c.id === clusterId && <Check className="ms-auto" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/">
+                <LayoutList /> All clusters
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }
 
@@ -299,7 +319,6 @@ function TopBar({ clusterId }: { clusterId: string }) {
   // so this falls back to the namespaces in their own grant.
   const { namespaces: nsNames, restricted: nsRestricted } = useAllowedNamespaces(clusterId);
   const loc = useLocation();
-  const { theme, toggle } = useTheme();
   const searchRef = useRef<HTMLInputElement>(null);
   const st = cluster ? statusTone(cluster.status) : { tone: "muted" as const, label: "…" };
   const section = sectionLabel(loc.pathname, clusterId);
@@ -318,61 +337,53 @@ function TopBar({ clusterId }: { clusterId: string }) {
   }, []);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 overflow-hidden border-b bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-3">
-      <SidebarTrigger className="-ml-1 shrink-0" />
-      <Breadcrumb className="min-w-0 flex-1 sm:flex-none">
-        <BreadcrumbList className="flex-nowrap text-xs sm:gap-1.5">
-          <BreadcrumbItem className="min-w-0">
-            <BreadcrumbLink asChild>
-              <Link to="/c/$clusterId" params={{ clusterId }} className="flex items-center gap-1.5">
-                <Dot tone={st.tone} pulse={st.tone === "ok"} />
-                <span className="truncate font-semibold text-foreground">{cluster?.name ?? clusterId}</span>
-              </Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {section && (
-            <>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage className="whitespace-nowrap">{section}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </>
-          )}
-        </BreadcrumbList>
-      </Breadcrumb>
-      {cluster?.info?.kubernetesVersion && (
-        <Badge variant="outline" className="hidden rounded-md font-mono text-[10px] md:inline-flex">
-          {cluster.info.kubernetesVersion}
-        </Badge>
-      )}
-
-      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <NamespacePicker namespaces={nsNames} value={namespace} onChange={setNamespace} allowAll={!nsRestricted} />
-        <InputGroup className="hidden h-8 w-44 sm:flex lg:w-64">
-          <InputGroupAddon>
-            <Search className="size-3.5" />
-          </InputGroupAddon>
-          <InputGroupInput ref={searchRef} placeholder="Filter…" value={search} onChange={(e) => setSearch(e.target.value)} className="text-xs" />
-          <InputGroupAddon align="inline-end">
-            {search ? (
-              <InputGroupButton size="icon-xs" aria-label="Clear filter" onClick={() => setSearch("")}>
-                <X />
-              </InputGroupButton>
-            ) : (
-              <Kbd>/</Kbd>
+    <AppTopBar
+      breadcrumb={
+        <Breadcrumb>
+          <BreadcrumbList className="flex-nowrap">
+            <BreadcrumbItem className="hidden md:inline-flex">
+              <BreadcrumbLink asChild>
+                <Link to="/">Clusters</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden md:block" />
+            <BreadcrumbItem className="min-w-0">
+              <BreadcrumbLink asChild>
+                <Link to="/c/$clusterId" params={{ clusterId }} className="flex items-center gap-1.5">
+                  <Dot tone={st.tone} pulse={st.tone === "ok"} />
+                  <span className="truncate">{cluster?.name ?? clusterId}</span>
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {section && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage className="whitespace-nowrap">{section}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
             )}
-          </InputGroupAddon>
-        </InputGroup>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label="Toggle theme" className="shrink-0">
-              {theme === "dark" ? <Sun /> : <Moon />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Switch to {theme === "dark" ? "light" : "dark"} theme</TooltipContent>
-        </Tooltip>
-      </div>
-    </header>
+          </BreadcrumbList>
+        </Breadcrumb>
+      }
+    >
+      <NamespacePicker namespaces={nsNames} value={namespace} onChange={setNamespace} allowAll={!nsRestricted} />
+      <InputGroup className="hidden w-44 sm:flex lg:w-64">
+        <InputGroupAddon>
+          <Search />
+        </InputGroupAddon>
+        <InputGroupInput ref={searchRef} placeholder="Filter…" aria-label="Filter this list" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <InputGroupAddon align="inline-end">
+          {search ? (
+            <InputGroupButton size="icon-xs" aria-label="Clear filter" onClick={() => setSearch("")}>
+              <X />
+            </InputGroupButton>
+          ) : (
+            <Kbd>/</Kbd>
+          )}
+        </InputGroupAddon>
+      </InputGroup>
+    </AppTopBar>
   );
 }
 

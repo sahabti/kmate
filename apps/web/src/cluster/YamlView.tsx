@@ -60,6 +60,13 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
     }
   };
 
+  // Parse before opening the review, so a YAML mistake shows next to the editor
+  // instead of behind the dialog.
+  const review = () => {
+    setErr(null);
+    if (parse()) setPreview(true);
+  };
+
   const apply = async () => {
     const doc = parse();
     if (!doc || !clusterId) return;
@@ -88,10 +95,10 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
         onApplied?.();
       }
     } catch (e) {
+      // Shown inside the review dialog, which stays open so the edit can be retried.
       const m = errorMessage(e);
       setErr(m);
       setConflict(/conflict/i.test(m));
-      toast.error(dryRun ? "Dry run failed" : "Apply failed", { description: m });
     } finally {
       setBusy(false);
     }
@@ -102,10 +109,10 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-1.5 text-xs">
         {editable ? (
           <>
-            <Button size="sm" variant="outline" disabled={!dirty} onClick={() => setPreview(true)}>
+            <Button size="sm" variant="outline" disabled={!dirty} onClick={review}>
               <FileDiff /> Diff
             </Button>
-            <Button size="sm" disabled={!dirty || busy} onClick={() => setPreview(true)}>
+            <Button size="sm" disabled={!dirty || busy} onClick={review}>
               {busy ? <Spinner size="sm" /> : <Save />} {dryRun ? "Dry run" : "Apply"}
             </Button>
             <Button
@@ -124,11 +131,6 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
             <label className="ml-1 flex items-center gap-1.5 text-muted-foreground">
               <Switch size="sm" checked={dryRun} onCheckedChange={setDryRun} aria-label="Dry run" /> Dry run
             </label>
-            {conflict && (
-              <label className="flex items-center gap-1.5 text-warning">
-                <Switch size="sm" checked={force} onCheckedChange={setForce} aria-label="Force" /> Force (take field ownership)
-              </label>
-            )}
             {dirty && (
               <Badge variant="outline" className="ml-auto rounded-md text-[10px] text-warning">
                 unsaved changes
@@ -146,15 +148,9 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
           </Tooltip>
         )}
       </div>
-      {err && (
+      {err && !preview && (
         <div className="p-2">
-          <ErrorCallout title={conflict ? "Field conflict" : "Apply error"} message={err} />
-          {conflict && (
-            <Callout variant="warning" className="mt-2 py-2">
-              <CalloutTitle>Another manager owns some of these fields</CalloutTitle>
-              <CalloutDescription>Enable “Force” to take ownership, the same as `kubectl apply --server-side --force-conflicts`.</CalloutDescription>
-            </Callout>
-          )}
+          <ErrorCallout title="Invalid YAML" message={err} />
         </div>
       )}
       <div className="min-h-0 flex-1">
@@ -168,7 +164,13 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
         />
       </div>
 
-      <Dialog open={preview} onOpenChange={setPreview}>
+      <Dialog
+        open={preview}
+        onOpenChange={(o) => {
+          setPreview(o);
+          if (!o) setErr(null);
+        }}
+      >
         <DialogContent className="flex h-[80vh] flex-col sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Review changes</DialogTitle>
@@ -176,6 +178,22 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
               Left: live object. Right: your edit. {dryRun ? "Dry run validates on the server without persisting." : "Server-side apply with field manager “kmate”."}
             </DialogDescription>
           </DialogHeader>
+          {err && (
+            <div className="flex flex-col gap-2">
+              <ErrorCallout title={conflict ? "Field conflict" : dryRun ? "Dry run failed" : "Apply failed"} message={err} />
+              {conflict && (
+                <Callout variant="warning" className="py-2">
+                  <CalloutTitle>Another manager owns some of these fields</CalloutTitle>
+                  <CalloutDescription className="flex flex-col gap-2">
+                    Take ownership to apply anyway, the same as `kubectl apply --server-side --force-conflicts`.
+                    <Label className="flex items-center gap-2">
+                      <Switch size="sm" checked={force} onCheckedChange={setForce} /> Force (take field ownership)
+                    </Label>
+                  </CalloutDescription>
+                </Callout>
+              )}
+            </div>
+          )}
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
             <CodeDiff original={original} modified={text} />
           </div>
@@ -183,7 +201,13 @@ export default function YamlView({ obj, clusterId, canWrite, onApplied }: { obj:
             <Label className="mr-auto flex items-center gap-2 text-xs text-muted-foreground">
               <Switch size="sm" checked={dryRun} onCheckedChange={setDryRun} /> Dry run
             </Label>
-            <Button variant="outline" onClick={() => setPreview(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPreview(false);
+                setErr(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={() => void apply()} disabled={busy}>

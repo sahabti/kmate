@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { Inbox, Lock } from "lucide-react";
 import { Callout, CalloutDescription, CalloutTitle } from "@/components/callout";
+import { RelativeTime } from "@/components/relative-time";
 import { Spinner } from "@/components/spinner";
+import { Dot } from "@/components/tone";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { denialHeadline, denialHint, denialLayer, type Denial } from "@/lib/denial";
@@ -79,5 +81,36 @@ export function DeniedCallout({ denial, what, className }: { denial: Denial; wha
         </span>
       </CalloutDescription>
     </Callout>
+  );
+}
+
+
+/**
+ * Freshness of a live-watched list: "Live" while the watch is healthy,
+ * "Reconnecting" while showing rows from before a dropped connection.
+ */
+export function LiveStatus({ synced, stale, syncedAt, error, className }: { synced: boolean; stale: boolean; syncedAt: number | null; error?: string | null; className?: string }) {
+  if (stale) {
+    return (
+      <span role="status" className={cn("flex items-center gap-1.5 text-xs text-warning", className)}>
+        <Spinner size="sm" label="Reconnecting" />
+        Reconnecting
+        {syncedAt && (
+          <span className="text-muted-foreground">
+            · showing data from <RelativeTime date={syncedAt} format="narrow" />
+          </span>
+        )}
+      </span>
+    );
+  }
+  // The error callout explains why; a spinner beside it would suggest progress.
+  if (!synced && error) return null;
+  if (!synced) return <Loading className={className} label="Syncing" />;
+
+  return (
+    <span role="status" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", className)}>
+      <Dot tone="ok" pulse />
+      Live
+    </span>
   );
 }

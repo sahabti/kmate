@@ -13,8 +13,9 @@ import { formatBytes, formatCpu, metricKey, useMetricsStore } from "@/store/metr
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RelativeTime } from "@/components/relative-time";
 import { Spinner } from "@/components/spinner";
+import { useConfirm } from "@/components/confirm";
 import { EmptyState, ErrorCallout, Loading } from "@/components/status";
-import { SimpleTable } from "@/components/Table";
+import { DataTable } from "@/components/Table";
 import { Timeline, TimelineContent, TimelineDescription, TimelineDot, TimelineItem, TimelineTime, TimelineTitle } from "@/components/timeline";
 import { Chips, ToneBadge } from "@/components/tone";
 import {
@@ -31,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -44,7 +45,7 @@ const YamlView = lazy(() => import("@/cluster/YamlView"));
 const ExecTerminal = lazy(() => import("@/cluster/Terminal"));
 
 type Tab = "summary" | "yaml" | "events" | "logs" | "terminal";
-type Pending = { kind: "scale" } | { kind: "restart" } | { kind: "delete" } | { kind: "cordon"; on: boolean } | { kind: "pf" } | null;
+type Pending = { kind: "scale" } | { kind: "restart" } | { kind: "cordon"; on: boolean } | { kind: "pf" } | null;
 
 export function ResourceDrawer({ clusterId }: { clusterId: string }) {
   const target = useDrawer((s) => s.target);
@@ -55,6 +56,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
   const [replicas, setReplicas] = useState("");
   const [busy, setBusy] = useState(false);
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const q = useObject(clusterId, target?.gvr ?? null, target?.namespace ?? "", target?.name ?? "");
   const obj = q.data ?? null;
   const isPod = target?.gvr.resource === "pods";
@@ -98,9 +100,8 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
       toast.success(label);
       setPending(null);
     } catch (e) {
-      const m = errorMessage(e);
-      setErr(m);
-      toast.error(m);
+      // The dialog that ran the action stays open and shows this inline.
+      setErr(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -108,14 +109,42 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
 
   const doScale = () => {
     const n = Number(replicas);
-    if (!Number.isInteger(n) || n < 0) return setErr("Replicas must be a non-negative integer");
+    if (replicas.trim() === "" || !Number.isInteger(n) || n < 0) return setErr("Enter a whole number, 0 or more.");
     void run(`Scaled ${target.name} to ${n}`, () => cluster.scale({ clusterId, scale: { ref, replicas: n } }));
   };
+  const dismiss = () => {
+    setPending(null);
+    setErr(null);
+  };
   const doRestart = () => void run(`Restarting ${target.name}`, () => cluster.rolloutRestart({ clusterId, restart: { ref } }));
+  // Deleting a namespace or node takes everything in or on it down too, so it asks for the name.
+  const severe = target.gvr.resource === "namespaces" || target.gvr.resource === "nodes";
   const doDelete = () =>
-    void run(`Deleted ${target.name}`, async () => {
-      await cluster.delete({ clusterId, delete: { ref, propagationPolicy: "Background" } });
-      close();
+    void confirm({
+      title: `Delete ${kindLabel} ${target.name}?`,
+      description: (
+        <>
+          {target.namespace && (
+            <>
+              Deletes <span className="font-mono text-foreground">{target.name}</span> from namespace <span className="font-mono text-foreground">{target.namespace}</span>.{" "}
+            </>
+          )}
+          {target.gvr.resource === "namespaces"
+            ? "Every object in the namespace is deleted with it. This cannot be undone."
+            : target.gvr.resource === "nodes"
+              ? "The node is removed from the cluster; its pods are not drained first. This cannot be undone."
+              : "This cannot be undone. Dependent objects are deleted in the background."}
+        </>
+      ),
+      confirmText: `Delete ${kindLabel.toLowerCase()}`,
+      tone: "destructive",
+      typeToConfirm: severe ? target.name : undefined,
+      onConfirm: async () => {
+        await cluster.delete({ clusterId, delete: { ref, propagationPolicy: "Background" } });
+        await qc.invalidateQueries({ queryKey: ["object", clusterId] });
+        toast.success(`Deleted ${kindLabel.toLowerCase()} ${target.name}`);
+        close();
+      },
     });
   const doCordon = (on: boolean) =>
     void run(on ? `Cordoned ${target.name}` : `Uncordoned ${target.name}`, () =>
@@ -207,7 +236,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-52 *:whitespace-nowrap">
+              <DropdownMenuContent align="end" className="w-56">
                 {(isPod || isService) && (
                   <>
                     <PortForwardItem />
@@ -226,22 +255,22 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
                 )}
                 {restartable && (
                   <WriteItem onSelect={() => setPending({ kind: "restart" })}>
-                    <RefreshCw /> Rollout restart
+                    <RefreshCw /> Rollout restart…
                   </WriteItem>
                 )}
                 {isNode &&
                   (obj?.spec?.unschedulable ? (
                     <WriteItem onSelect={() => setPending({ kind: "cordon", on: false })}>
-                      <CircleCheck /> Uncordon
+                      <CircleCheck /> Uncordon…
                     </WriteItem>
                   ) : (
                     <WriteItem onSelect={() => setPending({ kind: "cordon", on: true })}>
-                      <Ban /> Cordon
+                      <Ban /> Cordon…
                     </WriteItem>
                   ))}
                 {(scalable || restartable || isNode) && <DropdownMenuSeparator />}
-                <WriteItem variant="destructive" verb="delete" onSelect={() => setPending({ kind: "delete" })}>
-                  <Trash2 /> Delete
+                <WriteItem variant="destructive" verb="delete" onSelect={doDelete}>
+                  <Trash2 /> Delete…
                 </WriteItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -257,7 +286,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
             {isPod && <TabsTrigger value="logs">Logs</TabsTrigger>}
             {isPod && <TabsTrigger value="terminal">Terminal</TabsTrigger>}
           </TabsList>
-          {err && (
+          {err && !pending && (
             <div className="p-3">
               <ErrorCallout message={err} />
             </div>
@@ -299,7 +328,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
       </SheetContent>
 
       {/* Scale dialog */}
-      <Dialog open={pending?.kind === "scale"} onOpenChange={(o) => !o && setPending(null)}>
+      <Dialog open={pending?.kind === "scale"} onOpenChange={(o) => !o && dismiss()}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Scale {target.name}</DialogTitle>
@@ -312,16 +341,28 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
               doScale();
             }}
           >
-            <Field>
+            <Field data-invalid={!!err || undefined}>
               <FieldLabel htmlFor="replicas">Replicas</FieldLabel>
-              <Input id="replicas" type="number" min={0} value={replicas} onChange={(e) => setReplicas(e.target.value)} autoFocus className="font-mono" />
+              <Input
+                id="replicas"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={replicas}
+                onChange={(e) => setReplicas(e.target.value)}
+                autoFocus
+                aria-invalid={!!err || undefined}
+                aria-describedby={err ? "replicas-error" : undefined}
+                className="font-mono"
+              />
+              {err && <FieldError id="replicas-error">{err}</FieldError>}
             </Field>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPending(null)}>
+              <Button type="button" variant="outline" onClick={dismiss}>
                 Cancel
               </Button>
               <Button type="submit" disabled={busy}>
-                {busy && <Spinner size="sm" />} Scale
+                {busy && <Spinner size="sm" />} Scale {kindLabel.toLowerCase()}
               </Button>
             </DialogFooter>
           </form>
@@ -329,12 +370,13 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
       </Dialog>
 
       {/* Restart confirm */}
-      <AlertDialog open={pending?.kind === "restart"} onOpenChange={(o) => !o && setPending(null)}>
+      <AlertDialog open={pending?.kind === "restart"} onOpenChange={(o) => !o && dismiss()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Rollout restart {target.name}?</AlertDialogTitle>
             <AlertDialogDescription>Pods are replaced one by one following the rollout strategy. No spec changes are made besides the restart annotation.</AlertDialogDescription>
           </AlertDialogHeader>
+          <ErrorCallout message={err} title="That did not work" />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -351,7 +393,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
       </AlertDialog>
 
       {/* Cordon / uncordon confirm */}
-      <AlertDialog open={pending?.kind === "cordon"} onOpenChange={(o) => !o && setPending(null)}>
+      <AlertDialog open={pending?.kind === "cordon"} onOpenChange={(o) => !o && dismiss()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -363,6 +405,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
                 : "The node becomes schedulable again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ErrorCallout message={err} title="That did not work" />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -372,7 +415,7 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
                 if (pending?.kind === "cordon") doCordon(pending.on);
               }}
             >
-              {busy ? <Spinner size="sm" /> : pending?.kind === "cordon" && pending.on ? <Ban /> : <CircleCheck />} Confirm
+              {busy ? <Spinner size="sm" /> : pending?.kind === "cordon" && pending.on ? <Ban /> : <CircleCheck />} {pending?.kind === "cordon" && pending.on ? "Cordon node" : "Uncordon node"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -380,30 +423,6 @@ export function ResourceDrawer({ clusterId }: { clusterId: string }) {
 
       {obj && pending?.kind === "pf" && <PortForwardDialog open onClose={() => setPending(null)} clusterId={clusterId} obj={obj} />}
 
-      {/* Delete confirm */}
-      <AlertDialog open={pending?.kind === "delete"} onOpenChange={(o) => !o && setPending(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {kindLabel} "{target.name}"?
-            </AlertDialogTitle>
-            <AlertDialogDescription>This cannot be undone. Dependent objects are deleted in the background.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={busy}
-              onClick={(e) => {
-                e.preventDefault();
-                doDelete();
-              }}
-            >
-              {busy ? <Spinner size="sm" /> : <Trash2 />} Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Sheet>
   );
 }
@@ -517,7 +536,7 @@ function Summary({ obj, clusterId }: { obj: KObj; clusterId: string }) {
       )}
       {containers.length > 0 && (
         <Section title="Containers">
-          <SimpleTable
+          <DataTable
             rows={containers}
             rowKey={(c: any) => c.name}
             columns={[
@@ -537,7 +556,7 @@ function Summary({ obj, clusterId }: { obj: KObj; clusterId: string }) {
       )}
       {kind === "Node" && (
         <Section title="Resources">
-          <SimpleTable
+          <DataTable
             rows={resourceRows}
             rowKey={(r: string) => r}
             columns={[
@@ -574,7 +593,7 @@ function Summary({ obj, clusterId }: { obj: KObj; clusterId: string }) {
       </Section>
       {conditions.length > 0 && (
         <Section title="Conditions">
-          <SimpleTable
+          <DataTable
             rows={conditions}
             rowKey={(c: any) => c.type}
             columns={[
@@ -652,7 +671,7 @@ function PodsOnNode({ clusterId, node }: { clusterId: string; node: string }) {
       {q.error && <ErrorCallout message={errorMessage(q.error)} />}
       {q.data && pods.length === 0 && <span className="text-xs text-muted-foreground">No pods scheduled here.</span>}
       {pods.length > 0 && (
-        <SimpleTable
+        <DataTable
           rows={pods}
           rowKey={(p) => p.metadata?.uid ?? `${p.metadata?.namespace}/${p.metadata?.name}`}
           onRowClick={(p) => {

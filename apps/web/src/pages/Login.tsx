@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowRight, CircleAlert, Waypoints } from "lucide-react";
 import { hub, errorMessage } from "@/api/client";
+import { Callout, CalloutDescription, CalloutTitle } from "@/components/callout";
 import { PasswordInput, PasswordInputField } from "@/components/password-input";
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,13 @@ const ENTER = "animate-in fade-in slide-in-from-bottom-4 duration-500 ease-[cubi
 const SWAP = "animate-in fade-in slide-in-from-bottom-1 duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] fill-mode-both motion-reduce:animate-none";
 const stagger = (index: number): React.CSSProperties => ({ animationDelay: `${index * 60}ms` });
 
+/** Only same-app paths: an absolute or protocol-relative `next` would be an open redirect. */
+const safeNext = (next: string | undefined) => (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login") ? next : "/");
+
 /** Login page adapted from Hirael's login-01 block. */
 export function LoginPage() {
   const nav = useNavigate();
+  const search = useSearch({ from: "/login" });
   const setSession = useSession((s) => s.setSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +37,7 @@ export function LoginPage() {
       const res = await hub.login({ email, password });
       if (!res.user) throw new Error("no user in response");
       setSession(res.token, res.user);
-      void nav({ to: "/" });
+      void nav({ href: safeNext(search.next) });
     } catch (e) {
       setErr(errorMessage(e));
       setAttempt((n) => n + 1);
@@ -65,6 +70,12 @@ export function LoginPage() {
 
           <form noValidate style={stagger(3)} className={cn(ENTER, "p-8")} onSubmit={submit}>
             <FieldGroup className="gap-5">
+              {search.expired && !err && (
+                <Callout variant="info" className="py-2.5">
+                  <CalloutTitle>Your session expired</CalloutTitle>
+                  <CalloutDescription>Sign in again to pick up where you left off.</CalloutDescription>
+                </Callout>
+              )}
               {err && (
                 <div key={attempt} role="alert" className={cn(SWAP, "flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive")}>
                   <CircleAlert aria-hidden className="size-3.5 shrink-0" />
@@ -96,11 +107,13 @@ export function LoginPage() {
             </FieldGroup>
           </form>
 
-          <div className="border-t px-8 py-3 text-center">
-            <p className="text-[11px] text-muted-foreground">
-              Dev default: <span className="font-mono">admin@kmate.local</span> / <span className="font-mono">admin</span>
-            </p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="border-t px-8 py-3 text-center">
+              <p className="text-[11px] text-muted-foreground">
+                Dev default: <span className="font-mono">admin@kmate.local</span> / <span className="font-mono">admin</span>
+              </p>
+            </div>
+          )}
         </div>
         <p style={stagger(5)} className={cn(ENTER, "mt-4 text-center text-[11px] tracking-wide text-muted-foreground uppercase")}>
           Agent-based · no kubeconfig on this device

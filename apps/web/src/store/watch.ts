@@ -9,6 +9,13 @@ import type { KObj } from "@/lib/k8s";
 interface WatchEntry {
   objects: Map<string, KObj>;
   synced: boolean;
+  /**
+   * Rows from before a reconnect, kept on screen until the fresh list replaces
+   * them. Blanking a table on every reconnect hides data that is merely old.
+   */
+  stale: boolean;
+  /** When the last full list arrived; lets views say how old stale rows are. */
+  syncedAt: number | null;
   error: string | null;
   /** Set when the watch was refused, so views can explain instead of showing nothing. */
   denial: Denial | null;
@@ -21,13 +28,17 @@ interface WatchState {
   release(key: string): void;
   upsert(key: string, obj: KObj): void;
   remove(key: string, uid: string): void;
-  bulk(key: string, objs: KObj[]): void;
+  /** Swap in a complete list, dropping objects that vanished while disconnected. */
+  replace(key: string, objs: KObj[]): void;
   setSynced(key: string, synced: boolean): void;
   setError(key: string, error: string | null, denial?: Denial | null): void;
+  /** A resync is coming: keep the rows but mark them stale. */
   reset(key: string): void;
 }
 
-const empty = (): WatchEntry => ({ objects: new Map(), synced: false, error: null, denial: null, refs: 0 });
+const empty = (): WatchEntry => ({ objects: new Map(), synced: false, stale: false, syncedAt: null, error: null, denial: null, refs: 0 });
+
+const uidOf = (obj: KObj) => obj.metadata?.uid ?? `${obj.metadata?.namespace}/${obj.metadata?.name}`;
 
 export const useWatchStore = create<WatchState>()((set, get) => ({
   entries: {},
@@ -47,19 +58,15 @@ export const useWatchStore = create<WatchState>()((set, get) => ({
   },
   upsert(key, obj) {
     const e = get().entries[key] ?? empty();
-    const uid = obj.metadata?.uid ?? `${obj.metadata?.namespace}/${obj.metadata?.name}`;
     const objects = new Map(e.objects);
-    objects.set(uid, obj);
+    objects.set(uidOf(obj), obj);
     set({ entries: { ...get().entries, [key]: { ...e, objects } } });
   },
-  bulk(key, objs) {
+  replace(key, objs) {
     const e = get().entries[key] ?? empty();
-    const objects = new Map(e.objects);
-    for (const obj of objs) {
-      const uid = obj.metadata?.uid ?? `${obj.metadata?.namespace}/${obj.metadata?.name}`;
-      objects.set(uid, obj);
-    }
-    set({ entries: { ...get().entries, [key]: { ...e, objects } } });
+    const objects = new Map<string, KObj>();
+    for (const obj of objs) objects.set(uidOf(obj), obj);
+    set({ entries: { ...get().entries, [key]: { ...e, objects, synced: true, stale: false, syncedAt: Date.now(), error: null, denial: null } } });
   },
   remove(key, uid) {
     const e = get().entries[key];
@@ -78,6 +85,6 @@ export const useWatchStore = create<WatchState>()((set, get) => ({
   },
   reset(key) {
     const e = get().entries[key] ?? empty();
-    set({ entries: { ...get().entries, [key]: { ...e, objects: new Map(), synced: false, error: null, denial: null } } });
+    set({ entries: { ...get().entries, [key]: { ...e, synced: false, stale: e.objects.size > 0, denial: null } } });
   },
 }));

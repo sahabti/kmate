@@ -1,172 +1,146 @@
-import { useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, LogOut, Moon, Sun, Users as UsersIcon } from "lucide-react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { hub, errorMessage } from "@/api/client";
 import { useGrants } from "@/api/hooks";
+import { HubShell, initials, PageHeader } from "@/components/HubShell";
+import { Spinner } from "@/components/spinner";
 import { ErrorCallout, Loading } from "@/components/status";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { platform } from "@/platform";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
 
-export function SettingsPage() {
-  const user = useSession((s) => s.user);
-  const clear = useSession((s) => s.clear);
-  const { theme, setTheme } = useTheme();
-  const nav = useNavigate();
-  const grants = useGrants("");
-  const isAdmin = user?.role === "admin";
+const MIN_PASSWORD = 8;
 
-  const logout = async () => {
-    try {
-      await hub.logout({});
-    } catch {
-      /* ignore */
-    }
-    clear();
-    void nav({ to: "/login" });
-  };
-
-  const rows: Array<[string, React.ReactNode]> = [
-    ["Email", user?.email],
-    ["Name", user?.name || "—"],
-    ["Role", <Badge variant="secondary" className="rounded-md">{user?.role}</Badge>],
-    ["Hub", <span className="font-mono">{platform.hubUrl()}</span>],
-    ["Platform", platform.name],
-  ];
-
+/** One settings section: what it is on the left, the content on the right. */
+function Section({ title, description, children }: { title: string; description: ReactNode; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-8">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/">
-            <ArrowLeft /> Clusters
-          </Link>
-        </Button>
-        <h1 className="text-base font-semibold">Settings</h1>
+    <section className="grid gap-4 py-8 first:pt-0 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-10">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-medium">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Who you are signed in as on this hub.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Table className="text-xs">
-            <TableBody>
-              {rows.map(([k, v]) => (
-                <TableRow key={k} className="hover:bg-transparent">
-                  <TableCell className="w-32 text-muted-foreground">{k}</TableCell>
-                  <TableCell>{v}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Button variant="destructive" size="sm" onClick={logout}>
-            <LogOut /> Sign out
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your cluster access</CardTitle>
-          <CardDescription>
-            {isAdmin
-              ? "You are a KMate administrator, so every cluster is visible to you. What you may change in a cluster is still decided by that cluster's own RBAC."
-              : "What KMate lets you reach. Inside a cluster, its own RBAC decides what you may actually do."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {grants.isLoading && <Loading label="Loading your access…" />}
-          <ErrorCallout message={grants.error ? errorMessage(grants.error) : null} />
-          {grants.data && grants.data.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              {isAdmin ? "No explicit grants; administrator access covers every cluster." : "No cluster access yet. Ask an administrator for a grant."}
-            </p>
-          )}
-          {grants.data && grants.data.length > 0 && (
-            <Table className="text-xs">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cluster</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Namespaces</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {grants.data.map((g) => (
-                  <TableRow key={g.id}>
-                    <TableCell className="font-medium">{g.clusterName || g.clusterId}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-md">{g.role}</Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-[11px]">{g.namespaces.length ? g.namespaces.join(", ") : "all namespaces"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      <ChangePassword />
-
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Administration</CardTitle>
-            <CardDescription>Accounts, roles and which clusters each person may reach.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/settings/users">
-                <UsersIcon /> Manage users
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Theme is stored on this device.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-md border px-3 py-2">
-            <Label htmlFor="dark-mode" className="flex items-center gap-2 text-xs">
-              {theme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />} Dark mode
-            </Label>
-            <Switch id="dark-mode" checked={theme === "dark"} onCheckedChange={(v) => setTheme(v ? "dark" : "light")} />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      <div className="min-w-0">{children}</div>
+    </section>
   );
 }
 
-function ChangePassword() {
+export function SettingsPage() {
+  return (
+    <HubShell>
+      <PageHeader title="Settings" description="Your profile, your cluster access, and how KMate looks on this device." />
+      <div className="flex flex-col">
+        <ProfileSection />
+        <Separator />
+        <AccessSection />
+        <Separator />
+        <PasswordSection />
+        <Separator />
+        <AppearanceSection />
+      </div>
+    </HubShell>
+  );
+}
+
+function ProfileSection() {
+  const user = useSession((s) => s.user);
+
+  return (
+    <Section title="Profile" description="Who you are signed in as.">
+      <div className="flex items-center gap-4">
+        <Avatar className="size-12">
+          <AvatarFallback>{initials(user?.name || user?.email)}</AvatarFallback>
+        </Avatar>
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium">{user?.name || user?.email}</span>
+            <Badge variant="secondary">{user?.role}</Badge>
+          </div>
+          <span className="truncate text-sm text-muted-foreground">{user?.email}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            Signed in to <span className="font-mono">{platform.hubUrl()}</span>
+          </span>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function AccessSection() {
+  const isAdmin = useSession((s) => s.user?.role) === "admin";
+  const grants = useGrants("");
+
+  return (
+    <Section
+      title="Cluster access"
+      description="Which clusters KMate lets you reach. Inside a cluster, its own RBAC decides what you may actually do."
+    >
+      {grants.isLoading && <Loading label="Loading your access…" />}
+      <ErrorCallout message={grants.error ? errorMessage(grants.error) : null} />
+      {grants.data && grants.data.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {isAdmin ? "You are an administrator, so you reach every cluster." : "You have no cluster access yet. Ask an administrator for a grant."}
+        </p>
+      )}
+      {grants.data && grants.data.length > 0 && (
+        <ul className="flex flex-col divide-y rounded-lg border">
+          {grants.data.map((g) => (
+            <li key={g.id} className="flex items-center justify-between gap-4 px-4 py-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-medium">{g.clusterName || g.clusterId}</span>
+                <span className="truncate text-xs text-muted-foreground">{g.namespaces.length ? g.namespaces.join(", ") : "All namespaces"}</span>
+              </div>
+              <Badge variant="outline">{g.role}</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+function PasswordSection() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const id = useId();
 
-  const submit = async () => {
-    setBusy(true);
+  // Errors show only after the first submit, then update as the user types.
+  const errors = {
+    current: !current ? "Enter your current password." : null,
+    next: next.length < MIN_PASSWORD ? `Use at least ${MIN_PASSWORD} characters.` : null,
+    again: again !== next ? "The passwords do not match." : null,
+  };
+  const show = (k: keyof typeof errors) => (submitted ? errors[k] : null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
     setErr(null);
+    if (errors.current || errors.next || errors.again) {
+      const first = errors.current ? "current" : errors.next ? "next" : "again";
+      document.getElementById(`${id}-${first}`)?.focus();
+
+      return;
+    }
+    setBusy(true);
     try {
       await hub.setPassword({ currentPassword: current, newPassword: next });
       toast.success("Password changed");
       setCurrent("");
       setNext("");
+      setAgain("");
+      setSubmitted(false);
     } catch (e) {
       setErr(errorMessage(e));
     } finally {
@@ -174,29 +148,54 @@ function ChangePassword() {
     }
   };
 
+  const field = (k: keyof typeof errors, label: string, value: string, set: (v: string) => void, autoComplete: string, hint?: string) => (
+    <Field data-invalid={!!show(k) || undefined}>
+      <FieldLabel htmlFor={`${id}-${k}`}>{label}</FieldLabel>
+      <Input
+        id={`${id}-${k}`}
+        type="password"
+        value={value}
+        onChange={(e) => set(e.target.value)}
+        autoComplete={autoComplete}
+        aria-invalid={!!show(k) || undefined}
+        aria-describedby={show(k) ? `${id}-${k}-error` : undefined}
+      />
+      {show(k) ? <FieldError id={`${id}-${k}-error`}>{show(k)}</FieldError> : hint && <FieldDescription>{hint}</FieldDescription>}
+    </Field>
+  );
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Password</CardTitle>
-        <CardDescription>Change the password you use to sign in to this hub.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label className="text-xs">Current password</Label>
-            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">New password</Label>
-            <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground">At least 8 characters.</p>
+    <Section title="Password" description="Change the password you use to sign in to this hub.">
+      <form noValidate onSubmit={submit} className="flex max-w-md flex-col gap-6">
+        <FieldGroup>
+          {field("current", "Current password", current, setCurrent, "current-password")}
+          {field("next", "New password", next, setNext, "new-password", `At least ${MIN_PASSWORD} characters.`)}
+          {field("again", "Confirm new password", again, setAgain, "new-password")}
+        </FieldGroup>
         <ErrorCallout message={err} title="Could not change the password" />
-        <Button size="sm" onClick={() => void submit()} disabled={busy || !current || next.length < 8}>
-          Change password
-        </Button>
-      </CardContent>
-    </Card>
+        <div>
+          <Button type="submit" disabled={busy}>
+            {busy && <Spinner size="sm" />} Change password
+          </Button>
+        </div>
+      </form>
+    </Section>
+  );
+}
+
+function AppearanceSection() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Section title="Appearance" description="Saved on this device only.">
+      <ToggleGroup type="single" variant="outline" value={theme} onValueChange={(v) => v && setTheme(v as "light" | "dark")} aria-label="Theme">
+        <ToggleGroupItem value="light">
+          <Sun /> Light
+        </ToggleGroupItem>
+        <ToggleGroupItem value="dark">
+          <Moon /> Dark
+        </ToggleGroupItem>
+      </ToggleGroup>
+    </Section>
   );
 }

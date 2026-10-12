@@ -6,9 +6,9 @@
  * page. The hub's `/ws/clusters/{id}/watch` endpoint multiplexes any number of
  * watches on a single socket (see internal/hub/ws/watch.go for the wire format).
  *
- * Handlers receive already-decoded objects. On reconnect every active
- * subscription is re-sent and its handler first gets a `reset` event so the
- * store can clear before the fresh SYNC batch arrives.
+ * Handlers receive already-decoded objects. When the socket drops, and again
+ * on reconnect, every active subscription gets a `reset` event so the store can
+ * mark its rows stale until the fresh SYNC batch replaces them.
  */
 import { wsUrl } from "./client";
 import type { GVRKey, KObj } from "@/lib/k8s";
@@ -170,6 +170,7 @@ class ClusterMux {
         this.onOpenFailure(ev.reason || `close ${ev.code}`);
         return;
       }
+      for (const sub of this.subs.values()) if (!sub.denied) sub.handler({ type: "reset" });
       if (this.subs.size > 0) this.scheduleReconnect();
     };
   }

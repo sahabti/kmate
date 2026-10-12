@@ -7,6 +7,7 @@ import "./index.css";
 import { router } from "./router";
 import { useTheme } from "./store/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ConfirmProvider } from "@/components/confirm";
 import { Toaster } from "@/components/ui/sonner";
 
 // Apply persisted theme before first paint.
@@ -28,7 +29,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={qc}>
       <TooltipProvider delayDuration={300}>
-        <RouterProvider router={router} />
+        <ConfirmProvider>
+          <RouterProvider router={router} />
+        </ConfirmProvider>
         <Toaster position="bottom-right" richColors closeButton />
       </TooltipProvider>
     </QueryClientProvider>

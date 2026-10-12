@@ -1,0 +1,232 @@
+import type { ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { LogOut, Moon, Server, Settings, Sun, Users, Waypoints, type LucideIcon } from "lucide-react";
+import { hub } from "@/api/client";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { useSession } from "@/store/session";
+import { useTheme } from "@/store/theme";
+import { useUI } from "@/store/ui";
+
+/*
+ * Two-level app frame, after Cloudflare's dashboard: the hub level (clusters,
+ * users, settings) and the cluster level share one layout. Both have a sidebar
+ * for navigation and a top bar with the breadcrumb and the account menu.
+ */
+
+export async function signOut(clear: () => void, go: () => void) {
+  try {
+    await hub.logout({});
+  } catch {
+    /* the session ends locally either way */
+  }
+  clear();
+  go();
+}
+
+export function initials(nameOrEmail: string | undefined) {
+  const base = (nameOrEmail ?? "?").split("@")[0]!;
+  const parts = base.split(/[\s._-]+/).filter(Boolean);
+
+  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+/** Avatar button and menu at the right end of the top bar, on every page. */
+export function AccountMenu() {
+  const user = useSession((s) => s.user);
+  const clear = useSession((s) => s.clear);
+  const { theme, toggle } = useTheme();
+  const nav = useNavigate();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account menu">
+          <Avatar className="size-7">
+            <AvatarFallback className="text-xs">{initials(user?.name || user?.email)}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="flex flex-col">
+          <span className="truncate">{user?.name || user?.email}</span>
+          <span className="truncate text-xs font-normal text-muted-foreground">{user?.email}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link to="/settings">
+              <Settings /> Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={toggle}>
+            {theme === "dark" ? <Sun /> : <Moon />} {theme === "dark" ? "Light theme" : "Dark theme"}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void signOut(clear, () => void nav({ to: "/login" }))}>
+          <LogOut /> Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Sidebar open state, remembered across both levels and reloads. */
+export function AppSidebarProvider({ children }: { children: ReactNode }) {
+  const { sidebarCollapsed, toggleSidebar } = useUI();
+
+  return (
+    <SidebarProvider
+      defaultOpen={!sidebarCollapsed}
+      onOpenChange={(open) => {
+        if (open === sidebarCollapsed) toggleSidebar();
+      }}
+      className="h-full min-h-0"
+    >
+      {children}
+    </SidebarProvider>
+  );
+}
+
+/** Top bar shared by both levels: sidebar toggle, breadcrumb, page tools, account menu. */
+export function AppTopBar({ breadcrumb, children }: { breadcrumb: ReactNode; children?: ReactNode }) {
+  return (
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+      <SidebarTrigger className="-ms-1" />
+      <Separator orientation="vertical" className="me-1 data-[orientation=vertical]:h-4" />
+      <div className="min-w-0 flex-1">{breadcrumb}</div>
+      <div className="flex shrink-0 items-center gap-2">
+        {children}
+        <AccountMenu />
+      </div>
+    </header>
+  );
+}
+
+/** Brand row at the top of the hub sidebar. */
+function HubBrand() {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" asChild tooltip="KMate">
+          <Link to="/">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Waypoints className="size-4" />
+            </div>
+            <div className="grid flex-1 text-start text-sm leading-tight">
+              <span className="truncate font-medium">KMate</span>
+              <span className="truncate text-xs text-muted-foreground">Hub</span>
+            </div>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+interface HubNavItem {
+  to: "/" | "/settings/users" | "/settings";
+  label: string;
+  icon: LucideIcon;
+  admin?: boolean;
+}
+
+const HUB_NAV: HubNavItem[] = [
+  { to: "/", label: "Clusters", icon: Server },
+  { to: "/settings/users", label: "Users", icon: Users, admin: true },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
+/** Frame for hub-level pages: pick a cluster here, then work inside the cluster's own sidebar. */
+export function HubShell({ children }: { children: ReactNode }) {
+  const isAdmin = useSession((s) => s.user?.role) === "admin";
+  const loc = useLocation();
+  const items = HUB_NAV.filter((n) => !n.admin || isAdmin);
+  const current = items.find((n) => loc.pathname === n.to);
+
+  return (
+    <AppSidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <HubBrand />
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Hub</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {items.map((n) => (
+                  <SidebarMenuItem key={n.to}>
+                    <SidebarMenuButton asChild tooltip={n.label} isActive={loc.pathname === n.to}>
+                      <Link to={n.to}>
+                        <n.icon />
+                        <span>{n.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset className="min-h-0 min-w-0">
+        <AppTopBar
+          breadcrumb={
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{current?.label ?? "KMate"}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          }
+        />
+        <div id="main-content" data-slot="app-scroll" tabIndex={-1} className="min-h-0 flex-1 overflow-auto outline-none">
+          <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</div>
+        </div>
+      </SidebarInset>
+    </AppSidebarProvider>
+  );
+}
+
+/** Title row for a page: heading, one-line description, and the page's primary action. */
+export function PageHeader({ title, description, actions }: { title: string; description?: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+  );
+}

@@ -29,14 +29,26 @@ const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
 
-const requireAuth = () => {
-  if (!useSession.getState().token) throw redirect({ to: "/login" });
+// Remember where the user was going, so signing in lands them back there.
+const requireAuth = ({ location }: { location: { href: string } }) => {
+  if (!useSession.getState().token) throw redirect({ to: "/login", search: { next: location.href } });
 };
+
+export interface LoginSearch {
+  /** In-app path to return to after signing in. */
+  next?: string;
+  /** Set when the hub rejected an expired session. */
+  expired?: boolean;
+}
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+  validateSearch: (s: Record<string, unknown>): LoginSearch => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+    expired: s.expired === true || s.expired === "1" || s.expired === 1 ? true : undefined,
+  }),
   beforeLoad: () => {
     if (useSession.getState().token) throw redirect({ to: "/" });
   },

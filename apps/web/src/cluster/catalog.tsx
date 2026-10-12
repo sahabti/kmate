@@ -4,7 +4,7 @@ import { Box, Database, ExternalLink, Globe, Lock, Package, Search, Server, Shop
 import { useCatalog } from "@/api/hooks";
 import { StatCard, StatCardLabel, StatCardValue } from "@/components/stat-card";
 import { DeniedState, EmptyState, ErrorCallout, Loading } from "@/components/status";
-import { SimpleTable, type Column } from "@/components/Table";
+import { DataTable, type Column } from "@/components/Table";
 import { Dot, ToneBadge, type Tone } from "@/components/tone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -372,12 +372,13 @@ export function CatalogTablePage() {
       <StatTiles s={stats} />
       {!catalog && !error && !denial && <Loading label="Waiting for catalog from agent…" />}
       {catalog && (
-        <SimpleTable
+        <DataTable
           rows={entries}
           columns={cols}
           rowKey={(e) => e.id}
           onRowClick={(e) => open({ gvr: { group: "", version: "v1", resource: "services" }, namespace: e.namespace, name: e.name, kind: "Service" })}
-          emptyText="No services match"
+          emptyTitle="No services match"
+          emptyHint="Adjust the namespace or filters, or enable “Show system”."
         />
       )}
     </div>

@@ -1,9 +1,10 @@
+import { Puzzle } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useWatch } from "@/api/hooks";
 import { columnsFor } from "@/cluster/columns";
 import { ErrorCallout, Loading } from "@/components/status";
-import { VirtualTable } from "@/components/Table";
+import { DataTable } from "@/components/Table";
 import { Badge } from "@/components/ui/badge";
 import type { KObj } from "@/lib/k8s";
 import { useUI } from "@/store/ui";
@@ -23,7 +24,7 @@ export function CRDsPage() {
     void nav({ to: "/c/$clusterId/r/$group/$version/$resource", params: { clusterId, group, version: v.name, resource } });
   };
   return (
-    <div className="flex h-full flex-col gap-3 p-3 md:p-5">
+    <div className="flex flex-col gap-4 px-4 py-6 md:px-8">
       <div className="flex items-center gap-2">
         <h1 className="text-base font-semibold">Custom Resource Definitions</h1>
         <Badge variant="secondary" className="rounded-md font-mono">
@@ -32,9 +33,7 @@ export function CRDsPage() {
         {!synced && !error && <Loading label="syncing" />}
       </div>
       <ErrorCallout message={error} />
-      <div className="min-h-0 flex-1">
-        <VirtualTable rows={rows} columns={columnsFor("customresourcedefinitions", false)} rowKey={(o) => o.metadata?.uid ?? o.metadata?.name ?? ""} onRowClick={openCRD} />
-      </div>
+      <DataTable rows={rows} columns={columnsFor("customresourcedefinitions", false)} rowKey={(o) => o.metadata?.uid ?? o.metadata?.name ?? ""} onRowClick={openCRD} rowLabel={(o) => o.metadata?.name ?? ""} loading={!synced && !error} emptyIcon={<Puzzle />} emptyTitle={error ? "Cluster not reachable" : "No custom resource definitions"} emptyHint={error ? "Nothing to show until the agent reconnects." : undefined} />
     </div>
   );
 }

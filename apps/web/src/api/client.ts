@@ -14,7 +14,8 @@ const authInterceptor: Interceptor = (next) => async (req) => {
     if (e instanceof ConnectError && e.code === Code.Unauthenticated) {
       useSession.getState().clear();
       if (!window.location.pathname.startsWith("/login")) {
-        window.location.assign("/login");
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.assign(`/login?expired=1&next=${next}`);
       }
     }
     throw e;

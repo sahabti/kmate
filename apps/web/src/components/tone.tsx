@@ -26,7 +26,7 @@ const badgeClass: Record<Tone, string> = {
 export function Dot({ tone, className, pulse }: { tone: Tone; className?: string; pulse?: boolean }) {
   return (
     <span className={cn("relative inline-flex size-2 shrink-0 rounded-full", dotClass[tone], className)}>
-      {pulse && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60", dotClass[tone])} />}
+      {pulse && <span className={cn("absolute inline-flex size-full animate-ping rounded-full opacity-60 motion-reduce:hidden", dotClass[tone])} />}
     </span>
   );
 }

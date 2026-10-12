@@ -58,9 +58,8 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
             return;
           case "SYNC":
             if (ev.synced) {
-              store.getState().bulk(key, batch);
+              store.getState().replace(key, batch);
               batch = [];
-              store.getState().setSynced(key, true);
             } else if (ev.object) {
               if (store.getState().entries[key]?.synced) store.getState().upsert(key, ev.object);
               else batch.push(ev.object);
@@ -85,6 +84,8 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
             return;
           }
           case "CLOSED":
+            // The stream ended; a retry follows, so the rows are now stale rather than gone.
+            store.getState().reset(key);
             if (ev.error) store.getState().setError(key, ev.error.message, denialFromWire(ev.error));
             return;
         }
@@ -103,9 +104,8 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
           let batch: KObj[] = [];
           for await (const ev of stream) {
             if (ev.type === EventType.SYNC && ev.synced) {
-              store.getState().bulk(key, batch);
+              store.getState().replace(key, batch);
               batch = [];
-              store.getState().setSynced(key, true);
               continue;
             }
             if (ev.type === EventType.ERROR) {
@@ -122,10 +122,7 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
               store.getState().upsert(key, obj);
             }
           }
-          if (batch.length) {
-            store.getState().bulk(key, batch);
-            store.getState().setSynced(key, true);
-          }
+          if (batch.length) store.getState().replace(key, batch);
         } catch (e) {
           if (ac.signal.aborted) return;
           const denial = denialFromError(e);
@@ -159,7 +156,14 @@ export function useWatch(clusterId: string, gvr: GVRKey, namespace: string, opts
     });
   }, [entry]);
 
-  return { items, synced: entry?.synced ?? false, error: entry?.error ?? null, denial: entry?.denial ?? null };
+  return {
+    items,
+    synced: entry?.synced ?? false,
+    stale: entry?.stale ?? false,
+    syncedAt: entry?.syncedAt ?? null,
+    error: entry?.error ?? null,
+    denial: entry?.denial ?? null,
+  };
 }
 
 /** Live Service Catalog for a cluster (multiplexed socket; Connect stream as fallback). */

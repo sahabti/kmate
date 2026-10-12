@@ -1,20 +1,23 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, KeyRound, MoreHorizontal, Pencil, Plus, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { KeyRound, MoreHorizontal, Pencil, Plus, Search, SearchX, ShieldCheck, Trash2, UserCheck, UserPlus, Users, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { hub, errorMessage } from "@/api/client";
 import { useClusters, useGrants, useRefreshUsers, useUsers } from "@/api/hooks";
+import { useConfirm } from "@/components/confirm";
+import { HubShell, initials, PageHeader } from "@/components/HubShell";
 import { RelativeTime } from "@/components/relative-time";
 import { DeniedState, ErrorCallout, Loading } from "@/components/status";
+import { DataTable, type Column } from "@/components/Table";
+import { ToneBadge } from "@/components/tone";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,157 +46,197 @@ export function UsersPage() {
   const [editing, setEditing] = useState<User | null>(null);
   const [granting, setGranting] = useState<User | null>(null);
   const [password, setPassword] = useState<User | null>(null);
-  const [removing, setRemoving] = useState<User | null>(null);
+  const [q, setQ] = useState("");
+  const confirm = useConfirm();
 
   const denial = denialFromError(users.error);
-  const activeAdmins = useMemo(() => (users.data ?? []).filter((u) => u.role === "admin" && u.active).length, [users.data]);
+  const all = useMemo(() => users.data ?? [], [users.data]);
+  const activeAdmins = useMemo(() => all.filter((u) => u.role === "admin" && u.active).length, [all]);
+  const rows = useMemo(() => {
+    const t = q.trim().toLowerCase();
+
+    return t ? all.filter((u) => `${u.email} ${u.name} ${u.role}`.toLowerCase().includes(t)) : all;
+  }, [all, q]);
 
   const setActive = async (u: User, active: boolean) => {
-    try {
+    const run = async () => {
       await hub.updateUser({ id: u.id, active, activeSet: true });
-      toast.success(active ? `${u.email} activated` : `${u.email} deactivated`);
+      toast.success(active ? `Activated ${u.email}` : `Deactivated ${u.email}`);
       refresh();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    };
+    if (active) {
+      try {
+        await run();
+      } catch (e) {
+        toast.error(errorMessage(e));
+      }
+
+      return;
     }
+    await confirm({
+      title: `Deactivate ${u.email}?`,
+      description: "They are signed out and cannot sign in until an administrator activates the account again. Their grants are kept.",
+      confirmText: "Deactivate user",
+      tone: "destructive",
+      onConfirm: run,
+    });
   };
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/settings">
-            <ArrowLeft /> Settings
-          </Link>
-        </Button>
-        <h1 className="text-base font-semibold">Users</h1>
-        <Button size="sm" className="ml-auto" onClick={() => setCreating(true)} disabled={!!denial}>
-          <UserPlus /> Add user
-        </Button>
-      </div>
+  const remove = (u: User) =>
+    confirm({
+      title: `Delete ${u.email}?`,
+      description: "Their account and every cluster grant are removed. This cannot be undone.",
+      confirmText: "Delete user",
+      tone: "destructive",
+      onConfirm: async () => {
+        await hub.deleteUser({ id: u.id });
+        toast.success(`Deleted ${u.email}`);
+        refresh();
+      },
+    });
 
+  const columns: Column<User>[] = [
+    {
+      id: "user",
+      header: "User",
+      width: "minmax(240px,2fr)",
+      value: (u) => u.email,
+      cell: (u) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-xs">{initials(u.name || u.email)}</AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-medium">
+              {u.name || u.email}
+              {u.id === me?.id && <span className="ms-1 font-normal text-muted-foreground">(you)</span>}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">{u.email}</span>
+          </div>
+        </div>
+      ),
+    },
+    { id: "role", header: "Role", width: "120px", value: (u) => u.role, cell: (u) => <RoleBadge role={u.role} /> },
+    {
+      id: "identity",
+      header: "Kubernetes identity",
+      width: "minmax(180px,1.5fr)",
+      value: (u) => u.k8sUser || u.email,
+      cell: (u) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate font-mono text-xs">{u.k8sUser || u.email}</span>
+          {u.k8sGroups.length > 0 && <span className="truncate text-xs text-muted-foreground">{u.k8sGroups.join(", ")}</span>}
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      width: "130px",
+      value: (u) => (u.active ? "Active" : "Deactivated"),
+      cell: (u) => (
+        <ToneBadge tone={u.active ? "ok" : "muted"} dot>
+          {u.active ? "Active" : "Deactivated"}
+        </ToneBadge>
+      ),
+    },
+    {
+      id: "created",
+      header: "Created",
+      width: "130px",
+      value: (u) => (u.createdAt ? -timestampDate(u.createdAt).getTime() : undefined),
+      title: (u) => (u.createdAt ? timestampDate(u.createdAt).toLocaleString() : undefined),
+      cell: (u) => <span className="text-muted-foreground">{u.createdAt ? <RelativeTime date={timestampDate(u.createdAt)} format="short" /> : "—"}</span>,
+    },
+    {
+      id: "actions",
+      header: "",
+      width: "56px",
+      cell: (u) => {
+        const lastAdmin = u.role === "admin" && u.active && activeAdmins <= 1;
+        const guard = u.id === me?.id ? "This is your own account" : lastAdmin ? "This is the last active administrator" : null;
+
+        return (
+          // Row clicks open the editor; the menu must not.
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${u.email}`}>
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={() => setEditing(u)}>
+                  <Pencil /> Edit…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setGranting(u)}>
+                  <ShieldCheck /> Cluster access…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPassword(u)}>
+                  <KeyRound /> Set password…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <Guarded reason={guard}>
+                  <DropdownMenuItem disabled={!!guard} onSelect={() => void setActive(u, !u.active)}>
+                    {u.active ? <UserX /> : <UserCheck />} {u.active ? "Deactivate…" : "Activate"}
+                  </DropdownMenuItem>
+                </Guarded>
+                <Guarded reason={guard}>
+                  <DropdownMenuItem variant="destructive" disabled={!!guard} onSelect={() => void remove(u)}>
+                    <Trash2 /> Delete…
+                  </DropdownMenuItem>
+                </Guarded>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+    },
+  ];
+
+  return (
+    <HubShell>
+      <PageHeader
+        title="Users"
+        description="Who can sign in to this hub. The role sets what they may do in KMate; each cluster's RBAC still decides what they may do there."
+        actions={
+          !denial && (
+            <Button onClick={() => setCreating(true)}>
+              <UserPlus /> Add user
+            </Button>
+          )
+        }
+      />
       {denial ? (
         <DeniedState denial={denial} what="manage users" />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Accounts on this hub</CardTitle>
-            <CardDescription>
-              A role here decides what someone may do in KMate. What they may do in a cluster is still decided by that cluster's own RBAC.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {users.isLoading && <Loading label="Loading users…" />}
-            <ErrorCallout message={users.error && !denial ? errorMessage(users.error) : null} />
-            {users.data && (
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Kubernetes identity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.data.map((u) => {
-                    const self = u.id === me?.id;
-                    const lastAdmin = u.role === "admin" && u.active && activeAdmins <= 1;
-                    const guard = self ? "This is your own account" : lastAdmin ? "This is the last active administrator" : null;
-                    return (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-mono">
-                          {u.email}
-                          {self && <span className="ml-1 text-muted-foreground">(you)</span>}
-                        </TableCell>
-                        <TableCell>{u.name || "—"}</TableCell>
-                        <TableCell>
-                          <RoleBadge role={u.role} />
-                        </TableCell>
-                        <TableCell className="font-mono text-[11px] text-muted-foreground">
-                          {u.k8sUser || u.email}
-                          {u.k8sGroups.length > 0 && <span className="block opacity-70">{u.k8sGroups.join(", ")}</span>}
-                        </TableCell>
-                        <TableCell>
-                          {u.active ? <span className="text-success">active</span> : <span className="text-muted-foreground">deactivated</span>}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{u.createdAt ? <RelativeTime date={timestampDate(u.createdAt)} format="short" /> : "—"}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${u.email}`}>
-                                <MoreHorizontal />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="min-w-48">
-                              <DropdownMenuItem onSelect={() => setEditing(u)}>
-                                <Pencil /> Edit…
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setGranting(u)}>
-                                <ShieldCheck /> Cluster access…
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setPassword(u)}>
-                                <KeyRound /> Set password…
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <Guarded reason={guard}>
-                                <DropdownMenuItem disabled={!!guard} onSelect={() => void setActive(u, !u.active)}>
-                                  {u.active ? "Deactivate" : "Activate"}
-                                </DropdownMenuItem>
-                              </Guarded>
-                              <Guarded reason={guard}>
-                                <DropdownMenuItem variant="destructive" disabled={!!guard} onSelect={() => setRemoving(u)}>
-                                  <Trash2 /> Delete…
-                                </DropdownMenuItem>
-                              </Guarded>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-4">
+          <ErrorCallout message={users.error ? errorMessage(users.error) : null} />
+          <InputGroup className="max-w-sm">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput placeholder="Search users…" aria-label="Search users" value={q} onChange={(e) => setQ(e.target.value)} />
+          </InputGroup>
+          <DataTable
+            rows={rows}
+            columns={columns}
+            rowKey={(u) => u.id}
+            rowLabel={(u) => `Edit ${u.email}`}
+            onRowClick={setEditing}
+            loading={users.isLoading}
+            emptyIcon={q ? <SearchX /> : <Users />}
+            emptyTitle={q ? `No users match "${q}"` : "No users yet"}
+            emptyHint={q ? "Try a different search, or clear it." : undefined}
+          />
+        </div>
       )}
 
       {creating && <CreateUserDialog onClose={() => setCreating(false)} onDone={refresh} />}
       {editing && <EditUserDialog user={editing} onClose={() => setEditing(null)} onDone={refresh} />}
       {granting && <GrantsDialog user={granting} onClose={() => setGranting(null)} onDone={refresh} />}
       {password && <PasswordDialog user={password} onClose={() => setPassword(null)} />}
-      {removing && (
-        <AlertDialog open onOpenChange={(o) => !o && setRemoving(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete {removing.email}?</AlertDialogTitle>
-              <AlertDialogDescription>Their account and every cluster grant are removed. This cannot be undone.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={async () => {
-                  try {
-                    await hub.deleteUser({ id: removing.id });
-                    toast.success(`Deleted ${removing.email}`);
-                    refresh();
-                  } catch (e) {
-                    toast.error(errorMessage(e));
-                  }
-                  setRemoving(null);
-                }}
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </div>
+    </HubShell>
   );
 }
 
@@ -385,15 +428,22 @@ function GrantsDialog({ user, onClose, onDone }: { user: User; onClose: () => vo
   const grants = useGrants(user.id);
   const [adding, setAdding] = useState(false);
 
-  const revoke = async (g: ClusterGrant) => {
-    try {
-      await hub.deleteGrant({ userId: user.id, clusterId: g.clusterId });
-      toast.success(`Revoked access to ${g.clusterName || g.clusterId}`);
-      void grants.refetch();
-      onDone();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+  const confirm = useConfirm();
+  const revoke = (g: ClusterGrant) => {
+    const name = g.clusterName || g.clusterId;
+
+    return confirm({
+      title: `Revoke ${user.email}'s access to ${name}?`,
+      description: "The cluster disappears for them straight away. You can grant it again later.",
+      confirmText: "Revoke access",
+      tone: "destructive",
+      onConfirm: async () => {
+        await hub.deleteGrant({ userId: user.id, clusterId: g.clusterId });
+        toast.success(`Revoked ${user.email}'s access to ${name}`);
+        void grants.refetch();
+        onDone();
+      },
+    });
   };
 
   return (
@@ -428,7 +478,7 @@ function GrantsDialog({ user, onClose, onDone }: { user: User; onClose: () => vo
                   </TableCell>
                   <TableCell className="font-mono text-[11px]">{g.namespaces.length ? g.namespaces.join(", ") : "all namespaces"}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon-sm" aria-label="Revoke" onClick={() => void revoke(g)}>
+                    <Button variant="ghost" size="icon-sm" aria-label={`Revoke access to ${g.clusterName || g.clusterId}`} onClick={() => void revoke(g)}>
                       <Trash2 />
                     </Button>
                   </TableCell>

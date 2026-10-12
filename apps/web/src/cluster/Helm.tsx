@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cluster, errorMessage } from "@/api/client";
 import { useHelmRelease } from "@/api/hooks";
 import { ErrorCallout, Loading } from "@/components/status";
-import { SimpleTable } from "@/components/Table";
+import { DataTable } from "@/components/Table";
 import { ToneBadge, type Tone } from "@/components/tone";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -46,7 +46,7 @@ export function HelmPage() {
       <ErrorCallout message={q.error ? errorMessage(q.error) : null} />
       {q.isLoading && <Loading />}
       {q.data && (
-        <SimpleTable<HelmRelease>
+        <DataTable<HelmRelease>
           rows={q.data}
           rowKey={(r) => `${r.namespace}/${r.name}`}
           onRowClick={setSel}
@@ -59,7 +59,8 @@ export function HelmPage() {
             { id: "app", header: "App version", cell: (r) => r.appVersion, mono: true },
             { id: "upd", header: "Updated", cell: (r) => r.updated },
           ]}
-          emptyText="No Helm releases found"
+          emptyTitle="No Helm releases"
+          emptyHint="Releases installed with Helm 3 appear here."
         />
       )}
       {sel && <ReleaseSheet clusterId={clusterId} release={sel} onClose={() => setSel(null)} />}
@@ -158,7 +159,7 @@ function ReleaseSheet({ clusterId, release, onClose }: { clusterId: string; rele
           </TabsContent>
           <TabsContent value="history" className="min-h-0 flex-1 overflow-y-auto p-4">
             {d && (
-              <SimpleTable<HelmRelease>
+              <DataTable<HelmRelease>
                 rows={d.history}
                 rowKey={(r) => String(r.revision)}
                 onRowClick={(r) => setRevision(r.revision)}
@@ -169,7 +170,7 @@ function ReleaseSheet({ clusterId, release, onClose }: { clusterId: string; rele
                   { id: "app", header: "App version", cell: (r) => r.appVersion, mono: true },
                   { id: "upd", header: "Updated", cell: (r) => r.updated },
                 ]}
-                emptyText="No history"
+                emptyTitle="No history"
               />
             )}
             {revision > 0 && (
