@@ -1,0 +1,7 @@
+dist/
+node_modules/
+public/
+pnpm-lock.yaml
+src/gen/
+# Verbatim mirror of shadcn's primitives; keep diffable against upstream.
+src/components/ui/

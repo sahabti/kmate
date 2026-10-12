@@ -3,10 +3,11 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { denialFromError } from "@/lib/denial";
 import { RouterProvider } from "@tanstack/react-router";
-import "./index.css";
-import { router } from "./router";
-import { useTheme } from "./store/theme";
+import "@/index.css";
+import { router } from "@/router";
+import { useTheme } from "@/stores/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ConfirmProvider } from "@/components/confirm";
 import { Toaster } from "@/components/ui/sonner";
 
 // Apply persisted theme before first paint.
@@ -28,7 +29,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={qc}>
       <TooltipProvider delayDuration={300}>
-        <RouterProvider router={router} />
+        <ConfirmProvider>
+          <RouterProvider router={router} />
+        </ConfirmProvider>
         <Toaster position="bottom-right" richColors closeButton />
       </TooltipProvider>
     </QueryClientProvider>

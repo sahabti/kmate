@@ -36,12 +36,13 @@ const KMATE_MARKERS = [
 
 const AGENT_MARKERS = ["agent is read-only"];
 
-function classify(message: string): DenialSource {
+const classify = (message: string): DenialSource => {
   const m = message.toLowerCase();
   if (AGENT_MARKERS.some((s) => m.includes(s))) return "agent";
   if (KMATE_MARKERS.some((s) => m.includes(s))) return "kmate";
+
   return "kubernetes";
-}
+};
 
 /** A websocket mux error payload, as the hub sends it. */
 export interface WireError {
@@ -51,24 +52,27 @@ export interface WireError {
 }
 
 /** Classifies a mux error, or null when it is not a permission problem. */
-export function denialFromWire(e: WireError | undefined | null): Denial | null {
+export const denialFromWire = (e: WireError | undefined | null): Denial | null => {
   if (!e?.message) return null;
   if (e.code !== 403 && e.reason !== "Forbidden") return null;
+
   return { source: classify(e.message), message: e.message };
-}
+};
 
 /** Classifies a thrown error (Connect or otherwise), or null when it is not a denial. */
-export function denialFromError(e: unknown): Denial | null {
+export const denialFromError = (e: unknown): Denial | null => {
   if (e instanceof ConnectError) {
     if (e.code !== Code.PermissionDenied) return null;
     const message = e.rawMessage || e.message;
+
     return { source: classify(message), message };
   }
+
   return null;
-}
+};
 
 /** Human sentence naming which layer refused, for a heading or tooltip. */
-export function denialHeadline(d: Denial): string {
+export const denialHeadline = (d: Denial): string => {
   switch (d.source) {
     case "kmate":
       return "Your KMate access does not allow this";
@@ -77,10 +81,10 @@ export function denialHeadline(d: Denial): string {
     case "kubernetes":
       return "The cluster's RBAC does not allow this";
   }
-}
+};
 
 /** Short label for a badge or inline note. */
-export function denialLayer(d: Denial): string {
+export const denialLayer = (d: Denial): string => {
   switch (d.source) {
     case "kmate":
       return "KMate access";
@@ -89,10 +93,10 @@ export function denialLayer(d: Denial): string {
     case "kubernetes":
       return "cluster RBAC";
   }
-}
+};
 
 /** What the user can do about it. */
-export function denialHint(d: Denial): string {
+export const denialHint = (d: Denial): string => {
   switch (d.source) {
     case "kmate":
       return "Ask a KMate administrator to widen your grant on this cluster.";
@@ -101,12 +105,12 @@ export function denialHint(d: Denial): string {
     case "kubernetes":
       return "Ask a cluster administrator for a Role or ClusterRole binding that covers this.";
   }
-}
+};
 
 /**
  * Classifies a free-text reason (for example from an access review) by the layer
  * that produced it, so a tooltip names the right one.
  */
-export function denialFromReason(reason: string): DenialSource {
+export const denialFromReason = (reason: string): DenialSource => {
   return classify(reason);
-}
+};

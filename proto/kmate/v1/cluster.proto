@@ -29,18 +29,63 @@ service ClusterService {
   rpc AccessReview(ClusterAccessReviewRequest) returns (AccessReviewResponse);
 }
 
-message ClusterDiscoverRequest { string cluster_id = 1; }
-message ClusterListRequest { string cluster_id = 1; GVR gvr = 2; ListOptions options = 3; }
-message ClusterGetRequest { string cluster_id = 1; ObjectRef ref = 2; }
-message ClusterWatchRequest { string cluster_id = 1; GVR gvr = 2; ListOptions options = 3; }
-message ClusterApplyRequest { string cluster_id = 1; ApplyRequest apply = 2; }
-message ClusterPatchRequest { string cluster_id = 1; PatchRequest patch = 2; }
-message ClusterDeleteRequest { string cluster_id = 1; DeleteRequest delete = 2; }
-message ClusterScaleRequest { string cluster_id = 1; ScaleRequest scale = 2; }
-message ClusterRolloutRestartRequest { string cluster_id = 1; RolloutRestartRequest restart = 2; }
-message ClusterLogsRequest { string cluster_id = 1; LogsRequest logs = 2; }
-message ClusterCatalogRequest { string cluster_id = 1; }
-message ClusterHelmListRequest { string cluster_id = 1; string namespace = 2; }
-message ClusterHelmGetRequest { string cluster_id = 1; HelmGetRequest helm = 2; }
-message ClusterMetricsRequest { string cluster_id = 1; MetricsRequest metrics = 2; }
-message ClusterAccessReviewRequest { string cluster_id = 1; AccessReviewRequest review = 2; }
+message ClusterDiscoverRequest {
+  string cluster_id = 1;
+}
+message ClusterListRequest {
+  string cluster_id = 1;
+  GVR gvr = 2;
+  ListOptions options = 3;
+}
+message ClusterGetRequest {
+  string cluster_id = 1;
+  ObjectRef ref = 2;
+}
+message ClusterWatchRequest {
+  string cluster_id = 1;
+  GVR gvr = 2;
+  ListOptions options = 3;
+}
+message ClusterApplyRequest {
+  string cluster_id = 1;
+  ApplyRequest apply = 2;
+}
+message ClusterPatchRequest {
+  string cluster_id = 1;
+  PatchRequest patch = 2;
+}
+message ClusterDeleteRequest {
+  string cluster_id = 1;
+  DeleteRequest delete = 2;
+}
+message ClusterScaleRequest {
+  string cluster_id = 1;
+  ScaleRequest scale = 2;
+}
+message ClusterRolloutRestartRequest {
+  string cluster_id = 1;
+  RolloutRestartRequest restart = 2;
+}
+message ClusterLogsRequest {
+  string cluster_id = 1;
+  LogsRequest logs = 2;
+}
+message ClusterCatalogRequest {
+  string cluster_id = 1;
+}
+message ClusterHelmListRequest {
+  string cluster_id = 1;
+  string namespace = 2;
+}
+message ClusterHelmGetRequest {
+  string cluster_id = 1;
+  HelmGetRequest helm = 2;
+}
+message ClusterMetricsRequest {
+  string cluster_id = 1;
+  MetricsRequest metrics = 2;
+}
+message ClusterAccessReviewRequest {
+  string cluster_id = 1;
+  AccessReviewRequest review = 2;
+}

@@ -12,3 +12,5 @@ apps/web/node_modules/
 .kmate-agent-identity*.json
 assets/
 apps/web/public/themes/
+.dev/
+.playwright-mcp/

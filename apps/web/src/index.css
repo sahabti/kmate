@@ -146,7 +146,8 @@
   body {
     @apply bg-background text-foreground;
     margin: 0;
-    font-size: 13px;
+    /* 14px, shadcn's text-sm: the floor for body copy in a dense dashboard. */
+    font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
   }
   * {

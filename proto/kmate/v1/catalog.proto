@@ -38,15 +38,15 @@ message EndpointStats {
 
 // One way a service is reachable.
 message Exposure {
-  string kind = 1;          // Ingress | HTTPRoute | GRPCRoute | LoadBalancer | NodePort | ExternalName
-  string name = 2;          // name of the Ingress/Route object (empty for LB/NodePort)
-  string class = 3;         // ingress class / gateway name
+  string kind = 1; // Ingress | HTTPRoute | GRPCRoute | LoadBalancer | NodePort | ExternalName
+  string name = 2; // name of the Ingress/Route object (empty for LB/NodePort)
+  string class = 3; // ingress class / gateway name
   string host = 4;
   string path = 5;
   string path_type = 6;
   bool tls = 7;
   string url = 8;
-  repeated string addresses = 9;  // load balancer IPs / hostnames
+  repeated string addresses = 9; // load balancer IPs / hostnames
   int32 port = 10;
 }
 
@@ -58,10 +58,10 @@ message ProbeResult {
 }
 
 message CatalogEntry {
-  string id = 1;                       // namespace/name
+  string id = 1; // namespace/name
   string namespace = 2;
   string name = 3;
-  string type = 4;                     // ClusterIP | NodePort | LoadBalancer | ExternalName | Headless
+  string type = 4; // ClusterIP | NodePort | LoadBalancer | ExternalName | Headless
   repeated ServicePort ports = 5;
   map<string, string> selector = 6;
   repeated WorkloadRef workloads = 7;
@@ -74,7 +74,7 @@ message CatalogEntry {
   string group = 14;
   string description = 15;
   string icon = 16;
-  bool system = 17;                    // lives in a system namespace
+  bool system = 17; // lives in a system namespace
   google.protobuf.Timestamp last_change = 18;
   map<string, ProbeResult> probes = 19; // keyed by exposure url
 }

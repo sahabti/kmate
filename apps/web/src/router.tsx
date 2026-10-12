@@ -1,26 +1,27 @@
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
-import { useSession } from "@/store/session";
-import { LoginPage } from "@/pages/Login";
-import { ClustersPage } from "@/pages/Clusters";
-import { SettingsPage } from "@/pages/Settings";
-import { UsersPage } from "@/pages/Users";
-import { ClusterLayout } from "@/cluster/Layout";
-import { OverviewPage, CatalogTablePage } from "@/cluster/catalog";
-import { ResourceListPage } from "@/cluster/ResourceList";
-import { HelmPage } from "@/cluster/Helm";
-import { CRDsPage } from "@/cluster/CRDs";
-import { AuditPage } from "@/cluster/Audit";
+import { FillSkeleton } from "@/components/status";
+import { useSession } from "@/stores/session";
+import { LoginPage } from "@/features/auth/components/login-page";
+import { ClustersPage } from "@/features/clusters/components/clusters-page";
+import { SettingsPage } from "@/features/settings/components/settings-page";
+import { UsersPage } from "@/features/users/components/users-page";
+import { ClusterLayout } from "@/features/explorer/components/cluster-layout";
+import { OverviewPage, CatalogTablePage } from "@/features/explorer/components/service-catalog";
+import { ResourceListPage } from "@/features/explorer/components/resource-list-page";
+import { HelmPage } from "@/features/explorer/components/helm-page";
+import { CRDsPage } from "@/features/explorer/components/crds-page";
+import { AuditPage } from "@/features/explorer/components/audit-page";
 import { lazy, Suspense } from "react";
 
-const RealmViewLazy = lazy(() => import("@/realm/RealmView").then((m) => ({ default: m.RealmViewPage })));
-const RealmGalleryLazy = lazy(() => import("@/realm/Gallery").then((m) => ({ default: m.RealmGalleryPage })));
+const RealmViewLazy = lazy(() => import("@/features/realm/components/realm-view-page").then((m) => ({ default: m.RealmViewPage })));
+const RealmGalleryLazy = lazy(() => import("@/features/realm/components/realm-gallery-page").then((m) => ({ default: m.RealmGalleryPage })));
 const RealmPage = () => (
-  <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading the realm…</div>}>
+  <Suspense fallback={<FillSkeleton />}>
     <RealmViewLazy />
   </Suspense>
 );
 const RealmGalleryPage = () => (
-  <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+  <Suspense fallback={<FillSkeleton />}>
     <RealmGalleryLazy />
   </Suspense>
 );
@@ -29,14 +30,34 @@ const rootRoute = createRootRoute({
   component: () => <Outlet />,
 });
 
-const requireAuth = () => {
-  if (!useSession.getState().token) throw redirect({ to: "/login" });
+interface AuthGuardLocation {
+  href: string;
+}
+
+interface AuthGuardContext {
+  location: AuthGuardLocation;
+}
+
+// Remember where the user was going, so signing in lands them back there.
+const requireAuth = ({ location }: AuthGuardContext) => {
+  if (!useSession.getState().token) throw redirect({ to: "/login", search: { next: location.href } });
 };
+
+export interface LoginSearch {
+  /** In-app path to return to after signing in. */
+  next?: string;
+  /** Set when the hub rejected an expired session. */
+  expired?: boolean;
+}
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+  validateSearch: (s: Record<string, unknown>): LoginSearch => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+    expired: s.expired === true || s.expired === "1" || s.expired === 1 ? true : undefined,
+  }),
   beforeLoad: () => {
     if (useSession.getState().token) throw redirect({ to: "/" });
   },
