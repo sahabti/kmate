@@ -57,6 +57,16 @@ secrets.
 > `assets/` directory, so images it builds are clean. See
 > [11-realm-view.md](11-realm-view.md).
 
+The same workflow packages `deploy/helm/kmate-hub` and `deploy/helm/kmate-agent`
+and pushes them to `oci://$REGISTRY_URL/charts`. Charts are versioned from the git
+ref, not from `Chart.yaml`: a tag `v1.2.3` publishes `1.2.3`, while a push to main
+publishes `<chart version>-main.<short sha>`, a semver prerelease that sorts below
+any real release so `helm upgrade` will not pick it up by accident.
+
+```bash
+helm pull oci://<registry>/charts/kmate-hub --version 1.2.3
+```
+
 ## Debugging
 
 - `go run ./cmd/kmate-agent --kubeconfig ~/.kube/config --dump-catalog` prints the
