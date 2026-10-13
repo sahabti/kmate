@@ -25,6 +25,9 @@ catalog:
 rbac:
   read: true
   secretsRead: true
+  # With secretsRead=false the reader lists built-in groups plus Gateway API
+  # and Istio. Add read rules for other CRD groups here; avoid core Secrets.
+  extraReadRules: []
   write: false
   exec: false
   # On by default: with impersonation the agent acts as the signed-in user, so

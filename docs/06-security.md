@@ -10,7 +10,7 @@
 | Hub | Compromised Hub | Hub has *no* cluster credentials. It can only ask an agent to do things, and the agent applies impersonation + RBAC. Blast radius = what agent SA can do. |
 | Users | Privilege escalation | Hub roles + Kubernetes RBAC via impersonation. Write verbs off by default in Helm values. |
 | Audit | Repudiation | Every mutating and exec/log request audit-logged at Hub with user, cluster, object, request id; forwarded to stdout/SIEM. |
-| Secrets | Data exposure | Secret values masked in UI by default; reveal requires explicit action, audited, and can be disabled per cluster (`values.secrets.allowReveal=false`). |
+| Secrets | Data exposure | Data tab masks values by default; Kubernetes read permissions govern access to the full object. `rbac.secretsRead=false` disables Secret and Helm access through the agent. |
 
 ## Identity flow
 
@@ -23,13 +23,13 @@ sequenceDiagram
     participant K as API server
     U->>C: login (OIDC / password)
     C->>H: OIDC code / credentials
-    H-->>C: session JWT (15 min) + refresh (httpOnly cookie / keychain)
+    H-->>C: session JWT (12 hours)
     C->>H: ClusterService.List(cluster=prod, pods) + JWT
     H->>H: verify JWT, check membership(prod), map to k8s identity {user: alice@corp, groups:[kmate:viewer, team-shop]}
     H->>A: Frame{ListRequest, identity}
-    A->>K: GET /api/v1/pods  Impersonate-User: alice@corp  Impersonate-Group: team-shop
-    K-->>A: 200 / 403
-    A-->>H: response
+    A->>K: SelfSubjectAccessReview for list pods as alice@corp, team-shop
+    K-->>A: allowed / denied
+    A-->>H: cached objects only if allowed
     H-->>C: response
 ```
 
@@ -73,17 +73,19 @@ Enforcement matrix:
 | Request | Needs | Namespace checked |
 |---|---|---|
 | `ListClusters`, `WatchClusters` | any grant (filtered per cluster) | no |
-| `GetCluster`, `Discover`, `GetCatalog`, `AccessReview` | grant on the cluster | no (no object data) |
+| `GetCluster`, `Discover`, `AccessReview` | grant on the cluster | no (cluster metadata or permission questions) |
+| `GetCatalog`, `WatchCatalog` | grant on the cluster | catalog entries filtered to grant namespaces |
 | `List`, `Get`, `Watch`, `Logs`, `GetMetrics`, Helm reads | grant | yes |
 | `Apply`, `Patch`, `Delete`, `Scale`, `RolloutRestart` | grant with `operator`+ | yes |
 | `/ws/.../exec` | grant with `operator`+ (exec can change anything) | yes |
 | `/ws/.../portforward`, `/pf/...` | grant | yes |
 | `CreateCluster`, `DeleteCluster`, user and grant administration | global `admin` | no |
 
-Grants and roles are read from the database **on every request**, not from the JWT,
-so revoking a grant or deactivating an account takes effect immediately instead of
-when the token expires. A deactivated account is refused at the interceptor and
-cannot log in.
+Grants and roles are resolved from the database with a two-second cache rather than
+trusted from the JWT. User/grant administration invalidates that cache and closes
+the user's open Connect, WebSocket, and HTTP port-forward streams immediately.
+OIDC and external directory changes are detected within two seconds. Streams also
+end when their token expires. A deactivated account cannot log in.
 
 Every denial is written to the audit log with the reason, so attempts are visible,
 not just successes.
@@ -103,7 +105,9 @@ admin, whatever the identity provider happens to call its own groups.
 
 The hub puts this identity on every relayed request and the agent sets
 `Impersonate-User` / `Impersonate-Group`, so your own Roles and RoleBindings are the
-final authority and every action appears in the cluster's audit log as that user.
+final authority. List, watch, and cached get operations first perform a fresh
+SelfSubjectAccessReview as the caller; the shared informer still runs as the agent.
+Live operations and access reviews appear in Kubernetes audit logs as the user.
 A KMate `operator` grant does not bypass Kubernetes: without a matching RoleBinding
 the API server still answers 403.
 
@@ -130,7 +134,11 @@ Without impersonation the answers describe the agent's own ServiceAccount and ca
   `userextras/*`. On by default, because without it every KMate user shares the
   agent's own permissions. Turn it off only where the agent may not be granted the
   impersonate verb.
-- `rbac.secretsRead=true`: can be set false to exclude Secrets from the reader role entirely.
+- `rbac.secretsRead=true`: set false to exclude Secrets from the generated reader
+  and writer roles and deny Secret/Helm requests in the agent, including when
+  impersonation is enabled. The agent retains access to its own identity Secret.
+  Without wildcard core access the reader enumerates built-in API groups, Gateway
+  API, and Istio; add `rbac.extraReadRules` for other CRD groups as needed.
 
 ## Binding KMate users to Kubernetes RBAC
 
@@ -285,14 +293,31 @@ local administrator until SSO is proven.
   and writes an audit row. A rolling restart looks identical to a takeover, so the audit
   log is how you tell them apart.
 
+## Browser port-forward isolation
+
+HTTP port-forward responses use a CSP sandbox without `allow-same-origin`, so pod
+scripts have an opaque origin and cannot read hub localStorage or register hub
+service workers. Pod responses cannot set hub cookies, and hub Authorization and
+Cookie headers are stripped before forwarding. Applications requiring same-origin
+storage or script requests may not work in this sandbox; use `kubectl port-forward`
+for those applications.
+
+## YAML edits
+
+The hub validates the identity in an Apply envelope against its JSON payload and
+authorizes the payload's actual namespace. Versioned Secret and ConfigMap YAML
+edits use explicit merge patches so removing a key also removes keys owned by other
+field managers. Both the read and patch use the caller's identity. Resource-version
+preconditions reject concurrent edits; server-side dry run remains available.
+Other resource types continue using server-side apply.
+
 ## Transport
 
-- Client ⇄ Hub: TLS 1.2+, HSTS, CSP on the SPA.
-- Agent ⇄ Hub: gRPC over TLS 1.3, mTLS, cert lifetime 30 days, auto-renewed at 2/3 lifetime over the existing tunnel.
+- Client ⇄ Hub: TLS 1.2+; production ingress headers are configured by the operator.
+- Agent ⇄ Hub: gRPC over TLS 1.2+, mTLS, cert lifetime 30 days, auto-renewed at 2/3 lifetime over the existing tunnel.
 - Enrollment token: `kmt_enr_<random 32B base64url>`, expires 24 h, single-use by default.
 
 ## Supply chain
 
 - Distroless images, non-root, read-only rootfs, `seccompProfile: RuntimeDefault`.
-- SBOM + cosign signatures on releases. Helm chart signed.
-- Dependabot / Renovate.
+- SBOMs, release/chart signatures, and automated dependency updates are planned.

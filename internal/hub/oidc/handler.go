@@ -183,7 +183,7 @@ func (h *Handler) resolve(ctx context.Context, id *Identity) (*DirUser, error) {
 			existing.Role = role
 			changed = true
 		}
-		if len(k8sGroups) > 0 && !sameStrings(existing.K8sGroups, k8sGroups) {
+		if !sameStrings(existing.K8sGroups, k8sGroups) {
 			existing.K8sGroups = k8sGroups
 			changed = true
 		}

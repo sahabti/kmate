@@ -61,9 +61,10 @@ discovery, logs, exec, port-forward, YAML apply, Helm, metrics, audit log, Realm
 
 Not done yet, tracked in [docs/08-roadmap.md](docs/08-roadmap.md):
 
-- **Security hardening (phase 5).** Multi-user RBAC and OIDC single sign-on are in,
-  with per-user Kubernetes RBAC through impersonation. Still missing: mutual TLS
-  between agent and hub, which authenticate with a bearer token today.
+- **Security hardening (phase 5).** Multi-user RBAC, OIDC single sign-on, and agent
+  mutual TLS with automatic certificate renewal are implemented. Agent mTLS is
+  optional by default for migration; enable `agentMTLS: required` after upgrading
+  the fleet. Per-user Kubernetes RBAC also gates cached resource reads.
   **Deploy it on a private network for now.**
 - Desktop and mobile shells. The UI is responsive and the architecture is ready,
   but the Tauri shells are not built.

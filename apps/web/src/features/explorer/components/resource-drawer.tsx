@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { age, containersOf, podReady, podRestarts, podStatus, stripManaged, type KObj } from "@/lib/k8s";
+import { age, containersOf, gvrKey, podReady, podRestarts, podStatus, stripManaged, type KObj } from "@/lib/k8s";
 import { useDrawer } from "@/stores/drawer";
 import { useUI } from "@/stores/ui";
 
@@ -392,7 +392,13 @@ export const ResourceDrawer = ({ clusterId }: ResourceDrawerProps) => {
           <TabsContent value="yaml" className="min-h-0 flex-1 overflow-hidden">
             {obj && (
               <Suspense fallback={<FillSkeleton />}>
-                <YamlView obj={stripManaged(obj)} clusterId={clusterId} canWrite={canWrite} />
+                <YamlView obj={stripManaged(obj)} clusterId={clusterId} canWrite={canWrite} onApplied={(updated) => {
+                  if (updated.kind === obj.kind && updated.apiVersion === obj.apiVersion && updated.metadata?.name === target.name && (updated.metadata?.namespace ?? "") === target.namespace) {
+                    qc.setQueryData(["object", clusterId, gvrKey(target.gvr), target.namespace, target.name], updated);
+                  } else {
+                    void qc.invalidateQueries({ queryKey: ["object", clusterId] });
+                  }
+                }} />
               </Suspense>
             )}
           </TabsContent>

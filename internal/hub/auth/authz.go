@@ -174,13 +174,16 @@ type resolved struct {
 }
 
 type resolver struct {
-	dir Directory
-	mu  sync.Mutex
-	m   map[string]resolved
+	dir      Directory
+	mu       sync.Mutex
+	m        map[string]resolved
+	streams  map[string]map[chan struct{}]struct{}
+	revision uint64
 }
 
 func (r *resolver) get(ctx context.Context, userID string) (*Record, []Grant, error) {
 	r.mu.Lock()
+	revision := r.revision
 	if e, ok := r.m[userID]; ok && time.Since(e.at) < resolveTTL {
 		r.mu.Unlock()
 		return e.rec, e.grants, nil
@@ -198,6 +201,10 @@ func (r *resolver) get(ctx context.Context, userID string) (*Record, []Grant, er
 	sort.Slice(grants, func(i, j int) bool { return grants[i].ClusterID < grants[j].ClusterID })
 
 	r.mu.Lock()
+	if revision != r.revision {
+		r.mu.Unlock()
+		return r.get(ctx, userID)
+	}
 	if len(r.m) > 4096 {
 		r.m = map[string]resolved{}
 	}
@@ -212,7 +219,12 @@ func (a *Authenticator) Invalidate(userID string) {
 		return
 	}
 	a.res.mu.Lock()
+	a.res.revision++
 	delete(a.res.m, userID)
+	for changed := range a.res.streams[userID] {
+		close(changed)
+	}
+	delete(a.res.streams, userID)
 	a.res.mu.Unlock()
 }
 

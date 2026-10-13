@@ -94,6 +94,9 @@ func (h *Handler) exec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.CloseNow()
+	ctx, cancel := h.auth.StreamContext(r.Context(), p)
+	defer cancel()
+	r = r.WithContext(ctx)
 	q := r.URL.Query()
 	clusterID := r.PathValue("id")
 	// Exec is a write: it can change anything inside the container.
@@ -124,6 +127,9 @@ func (h *Handler) portForward(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.CloseNow()
+	ctx, cancel := h.auth.StreamContext(r.Context(), p)
+	defer cancel()
+	r = r.WithContext(ctx)
 	q := r.URL.Query()
 	clusterID := r.PathValue("id")
 	if err := auth.AuthorizeCluster(auth.WithPrincipal(r.Context(), p), clusterID, false, q.Get("namespace")); err != nil {

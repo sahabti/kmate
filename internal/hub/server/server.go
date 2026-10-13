@@ -126,7 +126,7 @@ func New(cfg Config, st *store.Store, a *auth.Authenticator, log *slog.Logger) (
 
 	// ---- client HTTP listener ----
 	m := http.NewServeMux()
-	apiCfg := api.Config{PublicURL: cfg.PublicURL, AgentPublicAddr: cfg.AgentPublicAddr, Insecure: cfg.Insecure}
+	apiCfg := api.Config{PublicURL: cfg.PublicURL, AgentPublicAddr: cfg.AgentPublicAddr, Insecure: cfg.Insecure, DisableLocalLogin: cfg.OIDC.Enabled() && !cfg.LocalLogin}
 	interceptors := connect.WithInterceptors(a.Interceptor(kmatev1connect.HubServiceLoginProcedure))
 	hubPath, hubH := kmatev1connect.NewHubServiceHandler(api.NewHubService(st, a, reg, rl, apiCfg, log), interceptors)
 	clPath, clH := kmatev1connect.NewClusterServiceHandler(api.NewClusterService(st, reg, rl, log), interceptors)
