@@ -34,8 +34,13 @@ func TestUserCRUDAndK8sIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.EffectiveK8sUser() != "oidc:dev" || len(got.EffectiveK8sGroups()) != 2 || got.Role != "operator" {
+	// Provider groups survive the round trip, and the role group rides along so
+	// cluster RBAC can be bound to kmate:operator rather than to "team-shop".
+	if got.EffectiveK8sUser() != "oidc:dev" || got.Role != "operator" {
 		t.Fatalf("round trip lost fields: %+v", got)
+	}
+	if g := got.EffectiveK8sGroups(); len(g) != 3 || g[0] != "team-shop" || g[1] != "readers" || g[2] != "kmate:operator" {
+		t.Fatalf("k8s groups = %v", g)
 	}
 	if got.UpdatedAt.IsZero() {
 		t.Fatal("updated_at should be set")

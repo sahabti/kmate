@@ -319,7 +319,9 @@ func TestIdentitySentToAgentIsKubernetesIdentity(t *testing.T) {
 	if r.GetIdentity().GetUser() != "oidc:dev@example.com" {
 		t.Fatalf("impersonated user = %q", r.GetIdentity().GetUser())
 	}
-	if g := r.GetIdentity().GetGroups(); len(g) != 2 || g[0] != "team-shop" {
+	// Provider groups reach the agent, and so does the KMate role group, so a
+	// cluster can bind kmate:viewer instead of every provider group name.
+	if g := r.GetIdentity().GetGroups(); len(g) != 3 || g[0] != "team-shop" || g[2] != "kmate:viewer" {
 		t.Fatalf("impersonated groups = %v", g)
 	}
 }

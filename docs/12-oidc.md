@@ -60,7 +60,9 @@ operator, then viewer. The role is re-evaluated on every login, so moving someon
 between groups in your directory moves them in KMate too.
 
 The groups claim always flows into `k8s_groups` regardless of mappings, because
-that is what Kubernetes RBAC binds against.
+that is what Kubernetes RBAC binds against. The agent also impersonates
+`kmate:<role>` alongside them, so a ClusterRoleBinding against `kmate:admin`
+applies to every KMate admin without naming your provider's groups at all.
 
 ### Accounts
 
