@@ -317,3 +317,11 @@ for those applications.
 
 - Distroless images, non-root, read-only rootfs, `seccompProfile: RuntimeDefault`.
 - SBOMs, release/chart signatures, and automated dependency updates are planned.
+
+## YAML edits
+
+Versioned Secret and ConfigMap YAML edits use explicit merge patches so removing
+a key also removes keys owned by other field managers. Both the read and patch
+use the caller's identity. Resource-version preconditions reject concurrent edits;
+server-side dry run remains available. Other resource types continue using
+server-side apply.

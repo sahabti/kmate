@@ -311,6 +311,12 @@ func (h *Handler) apply(ctx context.Context, req *kmatev1.Request, a *kmatev1.Ap
 	if fm == "" {
 		fm = "kmate"
 	}
+	// A full Secret/ConfigMap YAML edit describes removals as well as additions.
+	// SSA omission cannot remove keys owned by another manager. A versioned edit
+	// therefore uses an explicit merge patch, guarded against concurrent changes.
+	if (u.GetKind() == "Secret" || u.GetKind() == "ConfigMap") && a.GetObject().GetResourceVersion() != "" {
+		return h.applyDataEdit(ctx, req, a, u, gvr)
+	}
 	opts := metav1.ApplyOptions{FieldManager: fm, Force: a.Force}
 	if a.DryRun {
 		opts.DryRun = []string{metav1.DryRunAll}

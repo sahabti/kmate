@@ -41,7 +41,7 @@ param `group` uses `core` for the empty core group.
 
 | Feature | Where | Notes |
 |---|---|---|
-| YAML editing + server-side apply | Resource drawer → YAML | Monaco editor, Diff dialog (Monaco DiffEditor), Dry run toggle, Force toggle after a field conflict, Reset. Field manager `kmate`. Status/uid/resourceVersion are stripped from the apply body. |
+| YAML editing | Resource drawer → YAML | Monaco editor, Diff dialog, Dry run, Force after an apply conflict, Reset. Secret/ConfigMap edits use a versioned merge patch so removed keys are deleted; concurrent changes require a reload. Other kinds use server-side apply with field manager `kmate`. Server-generated fields are stripped from the apply body. |
 | Exec terminal | Pod drawer → Terminal | `/ws/clusters/{id}/exec?cmd=…` with the byte-channel framing (`0x00` stdin, `0xFF` resize; `0x01/0x02` out/err, `0x03` error). Shell picker + custom command, reconnect, copy/paste (Ctrl/⌘+Shift+C/V), mobile key bar with Ctrl modifier. |
 | Port-forward | Pod / Service drawer → Actions → Port-forward… | `POST /pf/session` (bearer → cookie) then opens `/pf/{cluster}/{ns}/{pod}/{port}/` in a new tab. Services resolve a ready backing pod and the target port. "Copy kubectl port-forward" included. |
 | Metrics | Pods and Nodes tables, pod/node drawer | `ClusterService.GetMetrics` polled every 15 s while a table is visible (`src/features/explorer/hooks/use-metrics-poll.ts`), last 20 samples kept in `src/stores/metrics.ts`, inline SVG sparklines (`src/components/sparkline.tsx`). Stops per cluster when metrics-server is unavailable. |
