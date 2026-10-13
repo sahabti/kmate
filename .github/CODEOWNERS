@@ -1,0 +1,15 @@
+# Reviewers requested automatically. Everything has an owner so no pull request
+# sits waiting for someone to notice it.
+#
+# Listed people are in MAINTAINERS.md. Adding someone here goes in the same pull
+# request that adds them there.
+
+*                       @liquidvinal
+
+# The contract between agent, hub and UI. A change here is never local.
+/proto/                 @liquidvinal
+/gen/                   @liquidvinal
+
+# Anything that widens what the agent may do in a cluster.
+/deploy/helm/           @liquidvinal
+/internal/hub/auth/     @liquidvinal
