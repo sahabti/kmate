@@ -294,6 +294,15 @@ local administrator until SSO is proven.
 The hub checks that an Apply envelope's API version, kind, name, and namespace
 match its JSON payload, then authorizes the payload's actual namespace.
 
+## Browser port-forward isolation
+
+HTTP port-forward responses use a CSP sandbox without `allow-same-origin`, so pod
+scripts have an opaque origin and cannot read hub localStorage or register hub
+service workers. Pod responses cannot set hub cookies, and hub Authorization and
+Cookie headers are stripped before forwarding. Applications requiring same-origin
+storage or script requests may not work in this sandbox; use `kubectl port-forward`
+for those applications.
+
 ## Transport
 
 - Client ⇄ Hub: TLS 1.2+; production ingress headers are configured by the operator.

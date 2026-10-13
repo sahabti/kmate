@@ -151,6 +151,7 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 		out.Header.Del(hh)
 	}
 	out.Header.Del("Cookie") // never leak the hub session to the pod
+	out.Header.Del("Authorization")
 	out.Header.Set("Connection", "close")
 	out.Header.Set("X-Forwarded-Prefix", strings.TrimSuffix(r.URL.Path, strings.TrimPrefix(rest, "/")))
 	out.ContentLength = r.ContentLength
@@ -169,13 +170,18 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 	hdr := w.Header()
 	for k, vs := range resp.Header {
-		if isHopByHop(k) {
+		if isHopByHop(k) || strings.EqualFold(k, "Set-Cookie") || strings.EqualFold(k, "Service-Worker-Allowed") {
 			continue
 		}
 		for _, v := range vs {
 			hdr.Add(k, v)
 		}
 	}
+	// Forwarded code must have an opaque origin: a pod is not part of the hub's
+	// trust boundary. In particular, never add allow-same-origin to this sandbox.
+	hdr.Set("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-downloads")
+	hdr.Set("Referrer-Policy", "no-referrer")
+	hdr.Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(resp.StatusCode)
 	flusher, _ := w.(http.Flusher)
 	buf := make([]byte, 32<<10)
