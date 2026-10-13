@@ -111,7 +111,7 @@ func (h *Handler) watch(w http.ResponseWriter, r *http.Request) {
 	h.watchSockets.Add(1)
 	defer h.watchSockets.Add(-1)
 
-	ctx, cancel := context.WithCancel(auth.WithPrincipal(r.Context(), p))
+	ctx, cancel := h.auth.StreamContext(auth.WithPrincipal(r.Context(), p), p)
 	defer cancel()
 	s := &watchSession{h: h, c: c, ctx: ctx, cancel: cancel, clusterID: r.PathValue("id"), out: make(chan []byte, writeBacklog), subs: map[string]context.CancelFunc{}}
 	defer s.closeAll()

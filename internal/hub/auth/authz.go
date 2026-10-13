@@ -165,7 +165,12 @@ func AuthorizeCluster(ctx context.Context, clusterID string, write bool, namespa
 
 // ---- directory-backed resolution with a very short cache ----
 
-const resolveTTL = 2 * time.Second
+const (
+	resolveTTL      = 2 * time.Second
+	resolveAttempts = 3
+)
+
+var errResolutionChanged = errors.New("authorization changed repeatedly during resolution; retry the request")
 
 type resolved struct {
 	rec    *Record
@@ -174,36 +179,54 @@ type resolved struct {
 }
 
 type resolver struct {
-	dir Directory
-	mu  sync.Mutex
-	m   map[string]resolved
+	dir      Directory
+	mu       sync.Mutex
+	m        map[string]resolved
+	streams  map[string]map[chan struct{}]struct{}
+	revision uint64
 }
 
 func (r *resolver) get(ctx context.Context, userID string) (*Record, []Grant, error) {
-	r.mu.Lock()
-	if e, ok := r.m[userID]; ok && time.Since(e.at) < resolveTTL {
+	for attempt := 0; attempt < resolveAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+		r.mu.Lock()
+		revision := r.revision
+		if e, ok := r.m[userID]; ok && time.Since(e.at) < resolveTTL {
+			r.mu.Unlock()
+			return e.rec, e.grants, nil
+		}
 		r.mu.Unlock()
-		return e.rec, e.grants, nil
-	}
-	r.mu.Unlock()
 
-	rec, err := r.dir.AuthRecord(ctx, userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	grants, err := r.dir.AuthGrants(ctx, userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	sort.Slice(grants, func(i, j int) bool { return grants[i].ClusterID < grants[j].ClusterID })
+		rec, err := r.dir.AuthRecord(ctx, userID)
+		if err != nil {
+			return nil, nil, err
+		}
+		grants, err := r.dir.AuthGrants(ctx, userID)
+		if err != nil {
+			return nil, nil, err
+		}
+		sort.Slice(grants, func(i, j int) bool { return grants[i].ClusterID < grants[j].ClusterID })
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 
-	r.mu.Lock()
-	if len(r.m) > 4096 {
-		r.m = map[string]resolved{}
+		r.mu.Lock()
+		if revision != r.revision {
+			r.mu.Unlock()
+			continue
+		}
+		if len(r.m) > 4096 {
+			r.m = map[string]resolved{}
+		}
+		r.m[userID] = resolved{rec: rec, grants: grants, at: time.Now()}
+		r.mu.Unlock()
+		return rec, grants, nil
 	}
-	r.m[userID] = resolved{rec: rec, grants: grants, at: time.Now()}
-	r.mu.Unlock()
-	return rec, grants, nil
+	// Repeated invalidation must fail closed without unbounded stack growth or
+	// directory reads. The next request can resolve a fresh snapshot.
+	return nil, nil, errResolutionChanged
 }
 
 // Invalidate drops a user's cached record and grants so a change takes effect at once.
@@ -212,7 +235,12 @@ func (a *Authenticator) Invalidate(userID string) {
 		return
 	}
 	a.res.mu.Lock()
+	a.res.revision++
 	delete(a.res.m, userID)
+	for changed := range a.res.streams[userID] {
+		close(changed)
+	}
+	delete(a.res.streams, userID)
 	a.res.mu.Unlock()
 }
 

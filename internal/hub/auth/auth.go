@@ -28,10 +28,11 @@ const SessionTTL = 12 * time.Hour
 // revoked grant or a deactivated account takes effect immediately rather than when
 // the token expires.
 type Principal struct {
-	ID     string
-	Email  string
-	Role   string
-	Active bool
+	ID        string
+	Email     string
+	Role      string
+	Active    bool
+	ExpiresAt time.Time
 
 	// Kubernetes identity the agent impersonates. Empty K8sUser means "use Email".
 	K8sUser   string
@@ -145,11 +146,11 @@ func (a *Authenticator) Verify(token string) (*Principal, error) {
 			return nil, errors.New("unexpected signing method")
 		}
 		return a.secret, nil
-	}, jwt.WithIssuer("kmate-hub"))
+	}, jwt.WithIssuer("kmate-hub"), jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired())
 	if err != nil || !t.Valid {
 		return nil, ErrUnauthenticated
 	}
-	return &Principal{ID: c.Subject, Email: c.Email, Role: c.Role}, nil
+	return &Principal{ID: c.Subject, Email: c.Email, Role: c.Role, ExpiresAt: c.ExpiresAt.Time}, nil
 }
 
 // FromHTTP extracts a principal from Authorization: Bearer or ?token=, refreshed
@@ -212,11 +213,14 @@ func (a *Authenticator) Interceptor(public ...string) connect.Interceptor {
 		}
 		return WithPrincipal(ctx, p), nil
 	}
-	return &interceptor{authenticate: authenticate}
+	return &interceptor{authenticate: authenticate, authenticateStream: func(ctx context.Context) (context.Context, context.CancelFunc) {
+		return a.StreamContext(ctx, FromContext(ctx))
+	}}
 }
 
 type interceptor struct {
-	authenticate func(ctx context.Context, procedure string, h http.Header) (context.Context, error)
+	authenticate       func(ctx context.Context, procedure string, h http.Header) (context.Context, error)
+	authenticateStream func(context.Context) (context.Context, context.CancelFunc)
 }
 
 func (i *interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
@@ -242,6 +246,8 @@ func (i *interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 		if err != nil {
 			return err
 		}
+		ctx, cancel := i.authenticateStream(ctx)
+		defer cancel()
 		return next(ctx, conn)
 	}
 }
