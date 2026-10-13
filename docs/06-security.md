@@ -95,7 +95,11 @@ Each account maps to a Kubernetes identity the agent impersonates:
 | Column | Default |
 |---|---|
 | `k8s_user` | the account's email |
-| `k8s_groups` | `["kmate:<global role>"]` |
+| `k8s_groups` | the groups from the identity provider, if any |
+
+`kmate:<global role>` is **always** impersonated in addition to whatever is in
+`k8s_groups`, so a cluster can bind `kmate:admin` once and have it apply to every
+admin, whatever the identity provider happens to call its own groups.
 
 The hub puts this identity on every relayed request and the agent sets
 `Impersonate-User` / `Impersonate-Group`, so your own Roles and RoleBindings are the
@@ -103,8 +107,8 @@ final authority and every action appears in the cluster's audit log as that user
 A KMate `operator` grant does not bypass Kubernetes: without a matching RoleBinding
 the API server still answers 403.
 
-OIDC will populate `k8s_user` and `k8s_groups` from token claims in a later phase.
-The shape is deliberately stable so that change needs no migration.
+OIDC populates `k8s_user` and `k8s_groups` from token claims; see
+[12-oidc.md](12-oidc.md).
 
 ### Access review
 
@@ -238,11 +242,16 @@ impersonates. The effect is that the directory you already run decides what
 people can do in the cluster, enforced by the API server rather than by KMate:
 
 ```
-provider group "platform-admins"
+provider group "platform-admins", KMate role admin
    → user.k8s_groups = ["platform-admins"]
    → agent impersonates Impersonate-Group: platform-admins
+                        Impersonate-Group: kmate:admin
    → your ClusterRoleBinding decides
 ```
+
+Bind whichever suits you. Binding the provider's group keeps authorization in the
+directory you already run; binding `kmate:<role>` keeps it tied to KMate's own
+roles and survives a rename in the directory.
 
 Group-to-role mappings (`KMATE_OIDC_ADMIN_GROUPS` and friends) additionally set
 the KMate role, re-evaluated on every login so directory changes take effect at

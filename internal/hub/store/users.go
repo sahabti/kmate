@@ -36,12 +36,34 @@ func (u *User) EffectiveK8sUser() string {
 	return u.Email
 }
 
+// RoleGroup is the Kubernetes group that always accompanies a user's KMate
+// role, so cluster RBAC can be bound to the role rather than to whatever an
+// identity provider happens to call its groups.
+func (u *User) RoleGroup() string { return "kmate:" + u.Role }
+
 // EffectiveK8sGroups are the groups the agent impersonates.
+//
+// The role group is always present. Groups from an identity provider are
+// carried through as well, so an existing Kubernetes binding against an IdP
+// group keeps working, but a cluster can bind kmate:admin and have it apply to
+// every admin regardless of how the provider names its groups. Without this the
+// role group reached local accounts only, because an OIDC login always writes
+// the provider's groups into k8s_groups and so never fell back to it.
 func (u *User) EffectiveK8sGroups() []string {
-	if len(u.K8sGroups) > 0 {
-		return u.K8sGroups
+	role := u.RoleGroup()
+	if len(u.K8sGroups) == 0 {
+		return []string{role}
 	}
-	return []string{"kmate:" + u.Role}
+	out := make([]string, 0, len(u.K8sGroups)+1)
+	for _, g := range u.K8sGroups {
+		if g == role {
+			// Already supplied explicitly; do not impersonate it twice.
+			return append(out, u.K8sGroups...)
+		}
+		out = append(out, g)
+	}
+
+	return append(out, role)
 }
 
 const userCols = `id, email, name, password_hash, role, k8s_user, k8s_groups, active, oidc, created_at, updated_at`
