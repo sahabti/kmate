@@ -93,3 +93,54 @@ jobs:
             echo "${{ steps.meta.outputs.tags }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  charts:
+    runs-on: ubuntu-latest
+    needs: images
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      # Charts are versioned from the git ref, not from Chart.yaml, so a chart
+      # can always be traced to the commit that produced it. A push to main is
+      # a semver prerelease of the chart's declared version, which keeps it
+      # sorted below any real release so `helm upgrade` will not pick it up by
+      # accident.
+      - id: ver
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            base=$(grep '^version:' deploy/helm/kmate-hub/Chart.yaml | awk '{print $2}')
+            version="${base}-main.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing charts as $version"
+
+      - name: Package and push charts
+        env:
+          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          echo "$REGISTRY_PASSWORD" | helm registry login "$REGISTRY_URL" --username "$REGISTRY_USERNAME" --password-stdin
+          mkdir -p dist
+          for chart in kmate-hub kmate-agent; do
+            helm package "deploy/helm/$chart" --version "$VERSION" --app-version "$VERSION" --destination dist/
+            helm push "dist/$chart-$VERSION.tgz" "oci://$REGISTRY_URL/charts"
+          done
+          helm registry logout "$REGISTRY_URL"
+
+      - name: Summary
+        run: |
+          {
+            echo "### charts"
+            echo '```'
+            echo "oci://<registry>/charts/kmate-hub:${{ steps.ver.outputs.version }}"
+            echo "oci://<registry>/charts/kmate-agent:${{ steps.ver.outputs.version }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
