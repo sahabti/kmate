@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowRight, CircleAlert } from "lucide-react";
+import { ArrowRight, CircleAlert, KeyRound } from "lucide-react";
 import { hub, errorMessage } from "@/services/api-client";
 import { Callout, CalloutDescription, CalloutTitle } from "@/components/callout";
 import { LogoTile } from "@/components/logo";
@@ -11,6 +11,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/stores/session";
+import { useAuthConfig } from "@/features/auth/hooks/use-auth-config";
 
 const ENTER = "animate-in fade-in slide-in-from-bottom-4 duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] fill-mode-both motion-reduce:animate-none";
 const SWAP = "animate-in fade-in slide-in-from-bottom-1 duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] fill-mode-both motion-reduce:animate-none";
@@ -29,6 +30,7 @@ export const LoginPage = () => {
   const [err, setErr] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
+  const auth = useAuthConfig();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,44 +69,65 @@ export const LoginPage = () => {
             </div>
           </div>
 
-          <form noValidate style={stagger(3)} className={cn(ENTER, "p-8")} onSubmit={submit}>
-            <FieldGroup className="gap-5">
-              {search.expired && !err && (
-                <Callout variant="info" className="py-2.5">
-                  <CalloutTitle>Your session expired</CalloutTitle>
-                  <CalloutDescription>Sign in again to pick up where you left off.</CalloutDescription>
-                </Callout>
-              )}
-              {err && (
-                <div key={attempt} role="alert" className={cn(SWAP, "flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive")}>
-                  <CircleAlert aria-hidden className="size-3.5 shrink-0" />
-                  <span className="break-words">{err}</span>
+          {auth.oidc.enabled && (
+            <div style={stagger(3)} className={cn(ENTER, "px-8 pt-8", !auth.localLogin && "pb-8")}>
+              <Button asChild size="lg" variant={auth.localLogin ? "outline" : "default"} className="group w-full">
+                <a href={auth.oidc.loginUrl ?? "/auth/oidc/login"}>
+                  <KeyRound className="size-4" />
+                  {auth.oidc.label || "Sign in with single sign-on"}
+                  <ArrowRight className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5" />
+                </a>
+              </Button>
+              {auth.localLogin && (
+                <div className="mt-5 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  or sign in with a password
+                  <span className="h-px flex-1 bg-border" />
                 </div>
               )}
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="login-email">Email</FieldLabel>
-                <Input id="login-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required />
-              </Field>
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="login-password">Password</FieldLabel>
-                <PasswordInput id="login-password" value={password} onValueChange={setPassword}>
-                  <PasswordInputField placeholder="••••••••" autoComplete="current-password" />
-                </PasswordInput>
-              </Field>
-              <Button type="submit" size="lg" disabled={busy || !email || !password} className="group">
-                {busy ? (
-                  <>
-                    <Spinner size="sm" /> Signing in…
-                  </>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5" />
-                  </>
+            </div>
+          )}
+
+          {auth.localLogin && (
+            <form noValidate style={stagger(auth.oidc.enabled ? 4 : 3)} className={cn(ENTER, auth.oidc.enabled ? "px-8 pt-5 pb-8" : "p-8")} onSubmit={submit}>
+              <FieldGroup className="gap-5">
+                {search.expired && !err && (
+                  <Callout variant="info" className="py-2.5">
+                    <CalloutTitle>Your session expired</CalloutTitle>
+                    <CalloutDescription>Sign in again to pick up where you left off.</CalloutDescription>
+                  </Callout>
                 )}
-              </Button>
-            </FieldGroup>
-          </form>
+                {err && (
+                  <div key={attempt} role="alert" className={cn(SWAP, "flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive")}>
+                    <CircleAlert aria-hidden className="size-3.5 shrink-0" />
+                    <span className="break-words">{err}</span>
+                  </div>
+                )}
+                <Field className="gap-1.5">
+                  <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                  <Input id="login-email" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus required />
+                </Field>
+                <Field className="gap-1.5">
+                  <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                  <PasswordInput id="login-password" value={password} onValueChange={setPassword}>
+                    <PasswordInputField placeholder="••••••••" autoComplete="current-password" />
+                  </PasswordInput>
+                </Field>
+                <Button type="submit" size="lg" disabled={busy || !email || !password} className="group">
+                  {busy ? (
+                    <>
+                      <Spinner size="sm" /> Signing in…
+                    </>
+                  ) : (
+                    <>
+                      Sign in
+                      <ArrowRight className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </Button>
+              </FieldGroup>
+            </form>
+          )}
 
           {import.meta.env.DEV && (
             <div className="border-t px-8 py-3 text-center">

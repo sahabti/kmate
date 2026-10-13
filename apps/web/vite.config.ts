@@ -18,6 +18,10 @@ export default defineConfig({
     proxy: {
       "/kmate.v1.": { target: "http://127.0.0.1:8080", changeOrigin: true },
       "/ws": { target: "ws://127.0.0.1:8080", ws: true, changeOrigin: true },
+      // /auth/config tells the login page whether single sign-on is available,
+      // and /auth/oidc/* is the sign-in redirect pair. Without this the dev
+      // server answers them with index.html and SSO silently disappears.
+      "/auth": { target: "http://127.0.0.1:8080", changeOrigin: true },
       "/pf": { target: "http://127.0.0.1:8080", changeOrigin: true, ws: true },
     },
   },

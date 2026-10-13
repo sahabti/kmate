@@ -472,6 +472,13 @@ func (s *watchSession) subscribeClusters(id string) {
 				return
 			}
 		}
+		// Mark the end of the initial batch, exactly as resource watches do. A
+		// user who can reach no clusters receives no events at all, so without
+		// this the client cannot tell "still loading" from "nothing to show"
+		// and spins forever.
+		if !s.send(watchMsg{ID: id, Type: "SYNC", Synced: true}) {
+			return
+		}
 		for {
 			select {
 			case ev := <-sub:

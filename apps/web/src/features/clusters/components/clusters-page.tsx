@@ -133,25 +133,34 @@ export const ClustersPage = () => {
         title="Clusters"
         description="Pick a cluster to work in. Each one is reached through its own KMate agent."
         actions={
-          <Button onClick={() => setAdding(true)}>
-            <Plus /> Add cluster
-          </Button>
+          isAdmin && (
+            <Button onClick={() => setAdding(true)}>
+              <Plus /> Add cluster
+            </Button>
+          )
         }
       />
 
       <div className="flex flex-col gap-4">
         <ErrorCallout message={error} />
         {loaded && clusters.length === 0 ? (
-          <EmptyState
-            icon={<Server />}
-            title="No clusters yet"
-            hint="Register a cluster to get an enrollment token, then install the KMate agent with Helm. The agent dials out to this hub; no kubeconfig needed here."
-            action={
-              <Button onClick={() => setAdding(true)}>
-                <Plus /> Add cluster
-              </Button>
-            }
-          />
+          // An admin sees none because none exist yet. Anyone else sees none
+          // because nothing has been granted to them, which is a different
+          // problem and needs different advice.
+          isAdmin ? (
+            <EmptyState
+              icon={<Server />}
+              title="No clusters yet"
+              hint="Register a cluster to get an enrollment token, then install the KMate agent with Helm. The agent dials out to this hub; no kubeconfig needed here."
+              action={
+                <Button onClick={() => setAdding(true)}>
+                  <Plus /> Add cluster
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState icon={<Server />} title="No clusters available to you" hint="Clusters appear here once an administrator grants you access to one. Your KMate role is listed under Settings." />
+          )
         ) : (
           <>
             <InputGroup className="max-w-sm">

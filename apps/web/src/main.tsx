@@ -9,9 +9,25 @@ import { useTheme } from "@/stores/theme";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfirmProvider } from "@/components/confirm";
 import { Toaster } from "@/components/ui/sonner";
+import { hub } from "@/services/api-client";
+import { takeTokenFromFragment } from "@/services/auth-config";
+import { useSession } from "@/stores/session";
 
 // Apply persisted theme before first paint.
 document.documentElement.classList.toggle("dark", useTheme.getState().theme === "dark");
+
+// An OIDC sign-in lands back on any app route with the session token in the URL
+// fragment. Claim it before the router mounts so the first render is already
+// past the auth guard and nobody sees a flash of the login page. The profile
+// arrives a moment later; the token alone is what the guard checks.
+const oidcToken = takeTokenFromFragment();
+if (oidcToken) {
+  useSession.setState({ token: oidcToken });
+  void hub
+    .me({})
+    .then((r) => r.user && useSession.getState().setSession(oidcToken, r.user))
+    .catch(() => useSession.getState().clear());
+}
 
 // A permission denial is a final answer: retrying or polling it only produces
 // console noise and load, so queries stop as soon as the hub or the API server

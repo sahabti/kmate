@@ -173,10 +173,14 @@ kmate/
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `make test` and, for UI changes,
-`pnpm typecheck && pnpm test && pnpm build` in `apps/web` before opening a PR.
-The protobuf files are the contract between components: change `proto/`, run
-`make proto`, then update both sides.
+Issues and pull requests are welcome, and KMate is actively looking for
+maintainers. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop, the
+checks CI runs, and the conventions — in particular that the protobuf files are
+the contract between components, so changing `proto/` means running `make proto`
+and updating both sides.
+
+Current maintainers are listed in [MAINTAINERS.md](MAINTAINERS.md). Participation
+is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
