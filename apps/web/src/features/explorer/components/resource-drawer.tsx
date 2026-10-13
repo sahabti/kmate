@@ -6,6 +6,8 @@ import { cluster, errorMessage } from "@/services/api-client";
 import { denialFromReason } from "@/lib/denial";
 import { useAccessReview, type AccessQuestion } from "@/features/explorer/hooks/use-access-review";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { DataView } from "@/features/explorer/components/data-view";
+import { hasData } from "@/features/explorer/lib/secret-data";
 import { useEventsFor } from "@/features/explorer/hooks/use-events-for";
 import { useObject } from "@/features/explorer/hooks/use-object";
 import { usePodsOnNode } from "@/features/explorer/hooks/use-pods-on-node";
@@ -48,7 +50,7 @@ import { useUI } from "@/stores/ui";
 const YamlView = lazy(() => import("@/features/explorer/components/yaml-view").then((m) => ({ default: m.YamlView })));
 const ExecTerminal = lazy(() => import("@/features/explorer/components/exec-terminal").then((m) => ({ default: m.ExecTerminal })));
 
-type Tab = "summary" | "yaml" | "events" | "logs" | "terminal";
+type Tab = "summary" | "data" | "yaml" | "events" | "logs" | "terminal";
 type Pending = { kind: "scale" } | { kind: "restart" } | { kind: "cordon"; on: boolean } | { kind: "pf" } | null;
 type MetricField = "cpu" | "mem";
 
@@ -151,6 +153,7 @@ export const ResourceDrawer = ({ clusterId }: ResourceDrawerProps) => {
   const isPod = target?.gvr.resource === "pods";
   const isNode = target?.gvr.resource === "nodes";
   const isService = target?.gvr.resource === "services";
+  const isData = target?.gvr.resource === "secrets" || target?.gvr.resource === "configmaps";
   const { canWrite, canExec, known: capsKnown } = useCapabilities(clusterId);
   const scalable = target?.gvr.resource === "deployments" || target?.gvr.resource === "statefulsets" || target?.gvr.resource === "replicasets";
   const restartable = target?.gvr.resource === "deployments" || target?.gvr.resource === "statefulsets" || target?.gvr.resource === "daemonsets";
@@ -360,6 +363,7 @@ export const ResourceDrawer = ({ clusterId }: ResourceDrawerProps) => {
           <div className="border-b px-2">
             <TabsList variant="line" className="w-full justify-start overflow-x-auto">
               <TabsTrigger value="summary">Summary</TabsTrigger>
+              {isData && <TabsTrigger value="data">Data</TabsTrigger>}
               <TabsTrigger value="yaml">YAML</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
               {isPod && <TabsTrigger value="logs">Logs</TabsTrigger>}
@@ -380,6 +384,11 @@ export const ResourceDrawer = ({ clusterId }: ResourceDrawerProps) => {
           <TabsContent value="summary" className="min-h-0 flex-1 overflow-hidden">
             {obj && <Summary obj={obj} clusterId={clusterId} />}
           </TabsContent>
+          {isData && (
+            <TabsContent value="data" className="min-h-0 flex-1 overflow-hidden">
+              {obj && hasData(obj) && <DataView obj={obj} />}
+            </TabsContent>
+          )}
           <TabsContent value="yaml" className="min-h-0 flex-1 overflow-hidden">
             {obj && (
               <Suspense fallback={<FillSkeleton />}>
