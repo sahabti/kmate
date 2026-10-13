@@ -1,0 +1,95 @@
+name: release
+
+# Publishes the agent and hub images. Pull requests deliberately do not run
+# this: a fork's PR cannot read repository secrets, so it could only ever fail,
+# and a registry push is not something an unreviewed branch should do.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Extra tag to publish alongside the usual ones (optional)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [agent, hub]
+    steps:
+      - uses: actions/checkout@v5
+
+      # Fail loudly and early. Without this the registry login step reports an
+      # opaque auth error that reads like a bad password rather than a missing
+      # secret.
+      - name: Check registry secrets are configured
+        env:
+          REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$REGISTRY_URL" ]      || missing="$missing REGISTRY_URL"
+          [ -n "$REGISTRY_USERNAME" ] || missing="$missing REGISTRY_USERNAME"
+          [ -n "$REGISTRY_PASSWORD" ] || missing="$missing REGISTRY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing (Settings → Secrets and variables → Actions)" >&2
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.REGISTRY_URL }}/kmate/${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short,prefix=
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+          labels: |
+            org.opencontainers.image.title=kmate-${{ matrix.component }}
+            org.opencontainers.image.licenses=Apache-2.0
+
+      # linux/amd64 only. Both binaries are CGO_ENABLED=0 so cross-compiling is
+      # cheap, but the Dockerfiles do not take TARGETARCH yet, and building
+      # arm64 under QEMU would emulate a full pnpm build for no current gain.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/${{ matrix.component }}.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+          # Zot serves plain OCI images; the extra attestation manifests buildx
+          # attaches by default are noise here.
+          provenance: false
+
+      - name: Summary
+        run: |
+          {
+            echo "### kmate/${{ matrix.component }}"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

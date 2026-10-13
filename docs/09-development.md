@@ -42,6 +42,21 @@ helm upgrade --install kmate-agent deploy/helm/kmate-agent -n kmate-system --cre
 - Every request kind has exactly one handler function in `internal/agent/handlers`.
 - Tests: `go test ./...`, `cd apps/web && pnpm test` (when added).
 
+## Container images
+
+`make images` builds `kmate/agent` and `kmate/hub` locally. Publishing is done by
+CI (`.github/workflows/release.yml`), not by hand: every push to `main` and every
+`v*` tag builds both images and pushes them to the registry named by the
+`REGISTRY_URL` repository secret, authenticated with `REGISTRY_USERNAME` and
+`REGISTRY_PASSWORD`. Pull requests do not publish, since a fork cannot read
+secrets.
+
+> **Do not push a locally built hub image.** `hub.Dockerfile` copies `assets*`
+> into the build context, so a hub image built on a machine that has the Cute
+> Fantasy packs contains art that may not be redistributed. CI clones have no
+> `assets/` directory, so images it builds are clean. See
+> [11-realm-view.md](11-realm-view.md).
+
 ## Debugging
 
 - `go run ./cmd/kmate-agent --kubeconfig ~/.kube/config --dump-catalog` prints the
