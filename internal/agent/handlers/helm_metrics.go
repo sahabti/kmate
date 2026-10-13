@@ -54,6 +54,9 @@ func (r *helmRelease) proto() *kmatev1.HelmRelease {
 
 // helmGet returns one release with values, manifest, notes and history.
 func (h *Handler) helmGet(ctx context.Context, req *kmatev1.Request, hg *kmatev1.HelmGetRequest) (*kmatev1.Response, error) {
+	if err := h.checkSecrets(schema.GroupVersionResource{Resource: "secrets"}); err != nil {
+		return nil, err
+	}
 	if hg.GetName() == "" {
 		return nil, apierrors.NewBadRequest("release name is required")
 	}
@@ -116,6 +119,9 @@ func (h *Handler) helmGet(ctx context.Context, req *kmatev1.Request, hg *kmatev1
 }
 
 func (h *Handler) helmList(ctx context.Context, req *kmatev1.Request, hl *kmatev1.HelmListRequest) (*kmatev1.Response, error) {
+	if err := h.checkSecrets(schema.GroupVersionResource{Resource: "secrets"}); err != nil {
+		return nil, err
+	}
 	_, cs := h.Clients.ForIdentity(req.Identity)
 	secrets, err := cs.CoreV1().Secrets(hl.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "type=helm.sh/release.v1"})
 	if err != nil {
