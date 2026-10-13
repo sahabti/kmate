@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest something KMate should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do, and what stops you today? Describe the
+        situation rather than the solution — it often has a cheaper answer than
+        the one you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: A kubectl command, another tool, a workaround.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This would change `proto/`, the contract between agent, hub and UI
+        - label: This would change what the agent is allowed to do in a cluster
+        - label: I would be willing to work on this
