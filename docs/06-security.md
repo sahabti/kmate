@@ -10,7 +10,7 @@
 | Hub | Compromised Hub | Hub has *no* cluster credentials. It can only ask an agent to do things, and the agent applies impersonation + RBAC. Blast radius = what agent SA can do. |
 | Users | Privilege escalation | Hub roles + Kubernetes RBAC via impersonation. Write verbs off by default in Helm values. |
 | Audit | Repudiation | Every mutating and exec/log request audit-logged at Hub with user, cluster, object, request id; forwarded to stdout/SIEM. |
-| Secrets | Data exposure | Secret values masked in UI by default; reveal requires explicit action, audited, and can be disabled per cluster (`values.secrets.allowReveal=false`). |
+| Secrets | Data exposure | The Data tab masks values by default; the YAML view and API expose the full object to callers with read access. |
 
 ## Identity flow
 
@@ -23,7 +23,7 @@ sequenceDiagram
     participant K as API server
     U->>C: login (OIDC / password)
     C->>H: OIDC code / credentials
-    H-->>C: session JWT (15 min) + refresh (httpOnly cookie / keychain)
+    H-->>C: session JWT (12 hours)
     C->>H: ClusterService.List(cluster=prod, pods) + JWT
     H->>H: verify JWT, check membership(prod), map to k8s identity {user: alice@corp, groups:[kmate:viewer, team-shop]}
     H->>A: Frame{ListRequest, identity}
@@ -287,12 +287,11 @@ local administrator until SSO is proven.
 
 ## Transport
 
-- Client ⇄ Hub: TLS 1.2+, HSTS, CSP on the SPA.
-- Agent ⇄ Hub: gRPC over TLS 1.3, mTLS, cert lifetime 30 days, auto-renewed at 2/3 lifetime over the existing tunnel.
+- Client ⇄ Hub: TLS 1.2+; production ingress headers are configured by the operator.
+- Agent ⇄ Hub: gRPC over TLS 1.2+, mTLS, cert lifetime 30 days, auto-renewed at 2/3 lifetime over the existing tunnel.
 - Enrollment token: `kmt_enr_<random 32B base64url>`, expires 24 h, single-use by default.
 
 ## Supply chain
 
 - Distroless images, non-root, read-only rootfs, `seccompProfile: RuntimeDefault`.
-- SBOM + cosign signatures on releases. Helm chart signed.
-- Dependabot / Renovate.
+- SBOMs, release/chart signatures, and automated dependency updates are planned.
