@@ -15,24 +15,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { KObj } from "@/lib/k8s";
+import { decodeObject, type KObj } from "@/lib/k8s";
+import { applyBody, editVersion } from "@/features/explorer/lib/yaml-edit";
 
 const DUMP = { noRefs: true, lineWidth: 120, sortKeys: false } as const;
-
-/** Fields that must not be sent in a server-side apply body. */
-const applyBody = (obj: KObj): KObj => {
-  const { status: _status, ...rest } = obj;
-  const m = { ...(rest.metadata ?? {}) } as Record<string, unknown>;
-  for (const k of ["managedFields", "uid", "creationTimestamp", "generation", "resourceVersion", "selfLink"]) delete m[k];
-
-  return { ...rest, metadata: m } as KObj;
-};
 
 interface YamlViewProps {
   obj: KObj;
   clusterId?: string;
   canWrite?: boolean;
-  onApplied?: () => void;
+  onApplied?: (updated: KObj) => void;
 }
 
 /**
@@ -40,9 +32,12 @@ interface YamlViewProps {
  * Read-only when the agent lacks the "write" capability.
  */
 export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps) => {
-  const original = useMemo(() => yaml.dump(obj, DUMP), [obj]);
-  const [draft, setDraft] = useState(original);
+  const liveYaml = useMemo(() => yaml.dump(obj, DUMP), [obj]);
+  const [draft, setDraft] = useState(liveYaml);
+  const [draftBase, setDraftBase] = useState<KObj | null>(null);
   const [dirty, setDirty] = useState(false);
+  const baseObj = dirty ? draftBase ?? obj : obj;
+  const original = useMemo(() => yaml.dump(baseObj, DUMP), [baseObj]);
   const [dryRun, setDryRun] = useState(false);
   const [force, setForce] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -84,10 +79,10 @@ export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps)
     setErr(null);
     try {
       const json = new TextEncoder().encode(JSON.stringify(body));
-      await cluster.apply({
+      const result = await cluster.apply({
         clusterId,
         apply: {
-          object: { json, apiVersion: body.apiVersion ?? "", kind: body.kind ?? "", namespace: body.metadata?.namespace ?? "", name: body.metadata?.name ?? "" },
+          object: { json, apiVersion: body.apiVersion ?? "", kind: body.kind ?? "", namespace: body.metadata?.namespace ?? "", name: body.metadata?.name ?? "", resourceVersion: editVersion(baseObj) },
           force,
           fieldManager: "kmate",
           dryRun,
@@ -100,14 +95,17 @@ export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps)
       } else {
         toast.success(`Applied ${body.kind}/${body.metadata?.name}`);
         setDirty(false);
-        await qc.invalidateQueries({ queryKey: ["object", clusterId] });
-        onApplied?.();
+        setDraftBase(null);
+        // The informer may briefly lag the write response. Show the accepted
+        // object immediately instead of refetching an older cached version.
+        if (result.object && onApplied) onApplied(decodeObject(result.object.json));
+        else await qc.invalidateQueries({ queryKey: ["object", clusterId] });
       }
     } catch (e) {
       // Shown inside the review dialog, which stays open so the edit can be retried.
       const m = errorMessage(e);
       setErr(m);
-      setConflict(/conflict/i.test(m));
+      setConflict(obj.kind !== "Secret" && obj.kind !== "ConfigMap" && /conflict/i.test(m));
     } finally {
       setBusy(false);
     }
@@ -131,6 +129,7 @@ export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps)
               onClick={() => {
                 setDraft(original);
                 setDirty(false);
+                setDraftBase(null);
                 setErr(null);
                 setConflict(false);
               }}
@@ -167,6 +166,7 @@ export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps)
           value={text}
           readOnly={!editable}
           onChange={(v) => {
+            if (!dirty) setDraftBase(obj);
             setDraft(v);
             setDirty(v !== original);
           }}
@@ -184,7 +184,7 @@ export const YamlView = ({ obj, clusterId, canWrite, onApplied }: YamlViewProps)
           <DialogHeader>
             <DialogTitle>Review changes</DialogTitle>
             <DialogDescription>
-              Left: live object. Right: your edit. {dryRun ? "Dry run validates on the server without persisting." : "Server-side apply with field manager “kmate”."}
+              Left: object before editing. Right: your edit. {dryRun ? "Dry run validates on the server without persisting." : obj.kind === "Secret" || obj.kind === "ConfigMap" ? "Saving applies additions, changes, and removals. Concurrent changes require a reload." : "Server-side apply with field manager “kmate”."}
             </DialogDescription>
           </DialogHeader>
           {err && (
