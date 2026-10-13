@@ -120,7 +120,8 @@ func main() {
 	c := cache.New(clients, namespaces, log.With("component", "cache"))
 	go c.Run(ctx)
 
-	h := &handlers.Handler{Clients: clients, Cache: c, Catalog: catalog, Log: log.With("component", "handlers"), CanExec: canExec, CanWrite: canWrite}
+	h := &handlers.Handler{Clients: clients, Cache: c, Catalog: catalog, Log: log.With("component", "handlers"), CanExec: canExec, CanWrite: canWrite,
+		DenySecrets: !strings.EqualFold(env("KMATE_SECRETS_READ", "true"), "true")}
 
 	caps := []string{"read", "catalog", "logs", "helm", "metrics"}
 	if canWrite {

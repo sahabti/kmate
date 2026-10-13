@@ -134,7 +134,11 @@ Without impersonation the answers describe the agent's own ServiceAccount and ca
   `userextras/*`. On by default, because without it every KMate user shares the
   agent's own permissions. Turn it off only where the agent may not be granted the
   impersonate verb.
-- `rbac.secretsRead=true`: can be set false to exclude Secrets from the reader role entirely.
+- `rbac.secretsRead=true`: set false to exclude Secrets from the generated reader
+  and writer roles and deny Secret/Helm requests in the agent, including when
+  impersonation is enabled. The agent retains access to its own identity Secret.
+  Without wildcard core access the reader enumerates built-in API groups, Gateway
+  API, and Istio; add `rbac.extraReadRules` for other CRD groups as needed.
 
 ## Binding KMate users to Kubernetes RBAC
 

@@ -16,6 +16,9 @@ import (
 // cached response. UI capability checks are never an authorization boundary.
 func (h *Handler) authorizeCachedRead(ctx context.Context, req *kmatev1.Request, g *kmatev1.GVR, ns, name, verb string) error {
 	gvr := cache.GVR(g)
+	if err := h.checkSecrets(gvr); err != nil {
+		return err
+	}
 	if !h.Clients.CanImpersonate {
 		return nil
 	}

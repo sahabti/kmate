@@ -5,15 +5,25 @@ metadata:
   name: kmate-agent-reader
   labels: {{- include "kmate-agent.labels" . | nindent 4 }}
 rules:
+{{- if .Values.rbac.secretsRead }}
 - apiGroups: ["*"]
   resources: ["*"]
   verbs: ["get", "list", "watch"]
+{{- else }}
+# RBAC has no deny rule: enumerate core resources and non-core groups rather
+# than granting *.*, which would include Secrets regardless of this toggle.
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints", "nodes", "namespaces", "events", "configmaps", "persistentvolumes", "persistentvolumeclaims", "replicationcontrollers", "serviceaccounts", "resourcequotas", "limitranges", "podtemplates"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps", "batch", "autoscaling", "networking.k8s.io", "policy", "storage.k8s.io", "discovery.k8s.io", "events.k8s.io", "rbac.authorization.k8s.io", "apiextensions.k8s.io", "apiregistration.k8s.io", "scheduling.k8s.io", "coordination.k8s.io", "node.k8s.io", "metrics.k8s.io", "gateway.networking.k8s.io", "networking.istio.io", "security.istio.io", "telemetry.istio.io", "extensions.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+{{- end }}
+{{- with .Values.rbac.extraReadRules }}
+{{ toYaml . | nindent 0 }}
+{{- end }}
 - nonResourceURLs: ["/metrics", "/healthz", "/version", "/livez", "/readyz"]
   verbs: ["get"]
-{{- if not .Values.rbac.secretsRead }}
-# NOTE: Kubernetes RBAC is additive; to truly exclude secrets set rbac.read=false and
-# supply your own reader role. This flag only controls whether the agent *asks* for secrets.
-{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -34,7 +44,16 @@ metadata:
   name: kmate-agent-writer
   labels: {{- include "kmate-agent.labels" . | nindent 4 }}
 rules:
-- apiGroups: ["", "apps", "batch", "autoscaling", "networking.k8s.io", "policy", "gateway.networking.k8s.io"]
+{{- if .Values.rbac.secretsRead }}
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["create", "update", "patch", "delete"]
+{{- else }}
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "nodes", "namespaces", "events", "configmaps", "persistentvolumes", "persistentvolumeclaims", "replicationcontrollers", "serviceaccounts", "resourcequotas", "limitranges", "podtemplates"]
+  verbs: ["create", "update", "patch", "delete"]
+{{- end }}
+- apiGroups: ["apps", "batch", "autoscaling", "networking.k8s.io", "policy", "gateway.networking.k8s.io"]
   resources: ["*"]
   verbs: ["create", "update", "patch", "delete"]
 - apiGroups: ["apps"]

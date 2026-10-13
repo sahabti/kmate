@@ -38,6 +38,7 @@ spec:
         - { name: KMATE_CAN_WRITE, value: {{ .Values.rbac.write | quote }} }
         - { name: KMATE_CAN_EXEC, value: {{ .Values.rbac.exec | quote }} }
         - { name: KMATE_CAN_IMPERSONATE, value: {{ .Values.rbac.impersonate | quote }} }
+        - { name: KMATE_SECRETS_READ, value: {{ .Values.rbac.secretsRead | quote }} }
         {{- if .Values.hub.caBundle }}
         - { name: KMATE_HUB_CA_FILE, value: /etc/kmate/ca.crt }
         {{- end }}
