@@ -14,13 +14,12 @@ KMate is pre-1.0. Only the latest commit on `main` receives fixes.
 
 ## Current posture
 
-KMate is not yet hardened for exposure to untrusted networks. As of 0.1.0:
+KMate is not yet hardened for exposure to untrusted networks. The current implementation includes:
 
-- Authentication is a single local admin account. OIDC is planned for phase 5.
-- End users are not yet mapped to Kubernetes identities via impersonation, so the
-  hub's own roles are the only authorization layer above the agent's ServiceAccount.
-- Agents authenticate to the hub with a bearer token issued at enrolment. Mutual TLS
-  is planned for phase 5.
+- Multi-user hub roles and grants, local password login, and optional OIDC.
+- Kubernetes user/group impersonation when the agent's impersonation option is enabled.
+- Agent mutual TLS with certificate issuance and automatic renewal. mTLS is optional
+  for migration; configure `agentMTLS: required` after upgrading all agents.
 
 Run the hub on a private network until those land. The agent ships with a read-only
 ClusterRole by default; `rbac.write`, `rbac.exec` and `rbac.impersonate` are opt-in.
