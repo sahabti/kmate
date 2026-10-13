@@ -81,10 +81,11 @@ Enforcement matrix:
 | `/ws/.../portforward`, `/pf/...` | grant | yes |
 | `CreateCluster`, `DeleteCluster`, user and grant administration | global `admin` | no |
 
-Grants and roles are read from the database **on every request**, not from the JWT,
-so revoking a grant or deactivating an account takes effect immediately instead of
-when the token expires. A deactivated account is refused at the interceptor and
-cannot log in.
+Grants and roles are resolved from the database with a two-second cache rather than
+trusted from the JWT. User/grant administration invalidates that cache and closes
+the user's open Connect, WebSocket, and HTTP port-forward streams immediately.
+OIDC and external directory changes are detected within two seconds. Streams also
+end when their token expires. A deactivated account cannot log in.
 
 Every denial is written to the audit log with the reason, so attempts are visible,
 not just successes.

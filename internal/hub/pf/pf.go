@@ -124,7 +124,7 @@ func (h *Handler) proxy(w http.ResponseWriter, r *http.Request) {
 		rest += "?" + r.URL.RawQuery
 	}
 
-	ctx, cancel := context.WithCancel(r.Context())
+	ctx, cancel := h.auth.StreamContext(r.Context(), p)
 	defer cancel()
 	req := api.NewRequest(auth.WithPrincipal(ctx, p))
 	req.Kind = &kmatev1.Request_PortForward{PortForward: &kmatev1.PortForwardRequest{Namespace: ns, Pod: pod, Port: int32(port)}}
