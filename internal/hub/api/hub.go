@@ -22,10 +22,11 @@ import (
 
 // Config holds values needed to build user-facing strings.
 type Config struct {
-	PublicURL       string
-	AgentPublicAddr string
-	Insecure        bool
-	ChartRef        string
+	PublicURL         string
+	AgentPublicAddr   string
+	Insecure          bool
+	ChartRef          string
+	DisableLocalLogin bool
 }
 
 // HubService implements kmatev1connect.HubServiceHandler.
@@ -49,6 +50,9 @@ func NewHubService(st *store.Store, a *auth.Authenticator, reg *registry.Registr
 
 // Login authenticates with email/password.
 func (h *HubService) Login(ctx context.Context, req *connect.Request[kmatev1.LoginRequest]) (*connect.Response[kmatev1.LoginResponse], error) {
+	if h.cfg.DisableLocalLogin {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("password login is disabled; use single sign-on"))
+	}
 	u, err := h.store.GetUserByEmail(ctx, strings.TrimSpace(strings.ToLower(req.Msg.GetEmail())))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid email or password"))
