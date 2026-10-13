@@ -299,7 +299,7 @@ func (c *ClusterService) GetCatalog(ctx context.Context, req *connect.Request[km
 	}
 	cat, err := c.store.GetCatalog(ctx, id)
 	if err == nil {
-		return connect.NewResponse(&kmatev1.CatalogResponse{Catalog: cat}), nil
+		return connect.NewResponse(&kmatev1.CatalogResponse{Catalog: auth.FilterCatalog(ctx, id, cat)}), nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -316,7 +316,7 @@ func (c *ClusterService) GetCatalog(ctx context.Context, req *connect.Request[km
 	if cat := resp.GetCatalog().GetCatalog(); cat != nil {
 		_ = c.store.SaveCatalog(ctx, id, cat)
 	}
-	return connect.NewResponse(orEmpty(resp.GetCatalog())), nil
+	return connect.NewResponse(&kmatev1.CatalogResponse{Catalog: auth.FilterCatalog(ctx, id, resp.GetCatalog().GetCatalog())}), nil
 }
 
 // WatchCatalog streams catalog updates.
@@ -335,7 +335,7 @@ func (c *ClusterService) WatchCatalog(ctx context.Context, req *connect.Request[
 	for {
 		select {
 		case cat := <-sub:
-			if err := stream.Send(cat); err != nil {
+			if err := stream.Send(auth.FilterCatalog(ctx, id, cat)); err != nil {
 				return err
 			}
 		case <-ctx.Done():

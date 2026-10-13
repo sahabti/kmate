@@ -431,7 +431,7 @@ func (s *watchSession) subscribeCatalog(id string) {
 }
 
 func (s *watchSession) sendCatalog(id string, c *kmatev1.Catalog) bool {
-	b, err := protojson.Marshal(c)
+	b, err := protojson.Marshal(auth.FilterCatalog(s.ctx, s.clusterID, c))
 	if err != nil {
 		return true
 	}
