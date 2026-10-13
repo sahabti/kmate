@@ -27,9 +27,9 @@ sequenceDiagram
     C->>H: ClusterService.List(cluster=prod, pods) + JWT
     H->>H: verify JWT, check membership(prod), map to k8s identity {user: alice@corp, groups:[kmate:viewer, team-shop]}
     H->>A: Frame{ListRequest, identity}
-    A->>K: GET /api/v1/pods  Impersonate-User: alice@corp  Impersonate-Group: team-shop
-    K-->>A: 200 / 403
-    A-->>H: response
+    A->>K: SelfSubjectAccessReview for list pods as alice@corp, team-shop
+    K-->>A: allowed / denied
+    A-->>H: cached objects only if allowed
     H-->>C: response
 ```
 
@@ -103,7 +103,9 @@ admin, whatever the identity provider happens to call its own groups.
 
 The hub puts this identity on every relayed request and the agent sets
 `Impersonate-User` / `Impersonate-Group`, so your own Roles and RoleBindings are the
-final authority and every action appears in the cluster's audit log as that user.
+final authority. List, watch, and cached get operations first perform a fresh
+SelfSubjectAccessReview as the caller; the shared informer still runs as the agent.
+Live operations and access reviews appear in Kubernetes audit logs as the user.
 A KMate `operator` grant does not bypass Kubernetes: without a matching RoleBinding
 the API server still answers 403.
 

@@ -43,11 +43,11 @@ func (h *Handler) Dispatch(ctx context.Context, st *mux.Stream, req *kmatev1.Req
 	case *kmatev1.Request_Discover:
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.discover(ctx, req) })
 	case *kmatev1.Request_List:
-		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.list(ctx, k.List) })
+		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.list(ctx, req, k.List) })
 	case *kmatev1.Request_Get:
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.get(ctx, req, k.Get) })
 	case *kmatev1.Request_Watch:
-		err = h.watch(ctx, st, k.Watch)
+		err = h.watch(ctx, st, req, k.Watch)
 	case *kmatev1.Request_Apply:
 		err = h.unary(ctx, st, func(ctx context.Context) (*kmatev1.Response, error) { return h.apply(ctx, req, k.Apply) })
 	case *kmatev1.Request_Patch:
@@ -180,7 +180,10 @@ func contains(s []string, v string) bool {
 	return false
 }
 
-func (h *Handler) list(ctx context.Context, req *kmatev1.ListRequest) (*kmatev1.Response, error) {
+func (h *Handler) list(ctx context.Context, identity *kmatev1.Request, req *kmatev1.ListRequest) (*kmatev1.Response, error) {
+	if err := h.authorizeCachedRead(ctx, identity, req.GetGvr(), req.GetOptions().GetNamespace(), "", "list"); err != nil {
+		return nil, err
+	}
 	items, err := h.Cache.List(ctx, cache.GVR(req.Gvr), req.Options)
 	if err != nil {
 		return nil, err
@@ -197,6 +200,9 @@ func (h *Handler) list(ctx context.Context, req *kmatev1.ListRequest) (*kmatev1.
 }
 
 func (h *Handler) get(ctx context.Context, req *kmatev1.Request, g *kmatev1.GetRequest) (*kmatev1.Response, error) {
+	if err := h.authorizeCachedRead(ctx, req, g.GetRef().GetGvr(), g.GetRef().GetNamespace(), g.GetRef().GetName(), "get"); err != nil {
+		return nil, err
+	}
 	gvr := cache.GVR(g.GetRef().GetGvr())
 	u, err := h.Cache.Get(ctx, gvr, g.GetRef().GetNamespace(), g.GetRef().GetName())
 	if err != nil {
@@ -218,9 +224,13 @@ func (h *Handler) get(ctx context.Context, req *kmatev1.Request, g *kmatev1.GetR
 	return &kmatev1.Response{Kind: &kmatev1.Response_Get{Get: &kmatev1.GetResponse{Object: ko}}}, nil
 }
 
-func (h *Handler) watch(ctx context.Context, st *mux.Stream, req *kmatev1.WatchRequest) error {
+func (h *Handler) watch(ctx context.Context, st *mux.Stream, identity *kmatev1.Request, req *kmatev1.WatchRequest) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	if err := h.authorizeCachedRead(ctx, identity, req.GetGvr(), req.GetOptions().GetNamespace(), "", "watch"); err != nil {
+		_ = st.Close(toError(err))
+		return err
+	}
 	events, stop, err := h.Cache.Watch(ctx, cache.GVR(req.Gvr), req.Options)
 	if err != nil {
 		_ = st.Send(&kmatev1.Frame{Payload: &kmatev1.Frame_WatchEvent{WatchEvent: &kmatev1.WatchEvent{Type: kmatev1.EventType_EVENT_TYPE_ERROR, Error: toError(err)}}})
