@@ -90,6 +90,25 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 }
 
+// rootsWithHubCA returns the system roots with the hub's CA added.
+//
+// The hub's CA is issued to the agent at enrollment so it can verify a hub that
+// serves its own certificate. It must ADD to the system roots rather than
+// replace them: when TLS is terminated in front of the hub by an ingress
+// gateway or a CDN, the certificate the agent is offered is signed by a public
+// CA the hub's CA knows nothing about. Replacing the pool rejects that as an
+// unknown authority, and because the agent retries forever the cluster simply
+// shows offline with nothing failing loudly.
+func rootsWithHubCA(caPEM []byte) *x509.CertPool {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	pool.AppendCertsFromPEM(caPEM)
+
+	return pool
+}
+
 type resetBackoff struct{ error }
 
 func (c *Client) dial(ctx context.Context) (*grpc.ClientConn, error) {
@@ -107,9 +126,7 @@ func (c *Client) dial(ctx context.Context) (*grpc.ClientConn, error) {
 			pool.AppendCertsFromPEM(pem)
 			tc.RootCAs = pool
 		} else if c.identity != nil && len(c.identity.CAPEM) > 0 {
-			pool := x509.NewCertPool()
-			pool.AppendCertsFromPEM(c.identity.CAPEM)
-			tc.RootCAs = pool
+			tc.RootCAs = rootsWithHubCA(c.identity.CAPEM)
 		}
 		if c.identity != nil && len(c.identity.CertPEM) > 0 && len(c.identity.KeyPEM) > 0 {
 			cert, err := tls.X509KeyPair(c.identity.CertPEM, c.identity.KeyPEM)
