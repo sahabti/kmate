@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	kmatev1 "github.com/kmate-dev/kmate/gen/go/kmate/v1"
 	"github.com/kmate-dev/kmate/gen/go/kmate/v1/kmatev1connect"
@@ -173,14 +175,21 @@ func (c *ClusterService) Watch(ctx context.Context, req *connect.Request[kmatev1
 
 // Apply performs a server-side apply.
 func (c *ClusterService) Apply(ctx context.Context, req *connect.Request[kmatev1.ClusterApplyRequest]) (*connect.Response[kmatev1.ApplyResponse], error) {
-	if err := authorizeWrite(ctx, req.Msg.GetClusterId(), req.Msg.GetApply().GetObject().GetNamespace()); err != nil {
+	o := req.Msg.GetApply().GetObject()
+	u := &unstructured.Unstructured{}
+	if err := json.Unmarshal(o.GetJson(), &u.Object); err != nil || u.GetAPIVersion() == "" || u.GetKind() == "" || u.GetName() == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("apply requires an object with apiVersion, kind and metadata.name"))
+	}
+	if o.GetNamespace() != u.GetNamespace() || o.GetName() != u.GetName() || o.GetKind() != u.GetKind() || o.GetApiVersion() != u.GetAPIVersion() {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("apply object metadata does not match its JSON payload"))
+	}
+	if err := authorizeWrite(ctx, req.Msg.GetClusterId(), u.GetNamespace()); err != nil {
 		o := req.Msg.GetApply().GetObject()
 		return nil, c.denied(ctx, req.Msg.GetClusterId(), "apply", fmt.Sprintf("%s %s/%s", o.GetKind(), o.GetNamespace(), o.GetName()), err)
 	}
 	r := NewRequest(ctx)
 	r.Kind = &kmatev1.Request_Apply{Apply: req.Msg.GetApply()}
 	resp, err := c.relay.Unary(ctx, req.Msg.GetClusterId(), r)
-	o := req.Msg.GetApply().GetObject()
 	c.audit(ctx, req.Msg.GetClusterId(), "apply", fmt.Sprintf("%s %s/%s", o.GetKind(), o.GetNamespace(), o.GetName()), err)
 	if err != nil {
 		return nil, err

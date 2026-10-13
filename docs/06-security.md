@@ -285,6 +285,11 @@ local administrator until SSO is proven.
   and writes an audit row. A rolling restart looks identical to a takeover, so the audit
   log is how you tell them apart.
 
+## Apply payload validation
+
+The hub checks that an Apply envelope's API version, kind, name, and namespace
+match its JSON payload, then authorizes the payload's actual namespace.
+
 ## Transport
 
 - Client ⇄ Hub: TLS 1.2+, HSTS, CSP on the SPA.
