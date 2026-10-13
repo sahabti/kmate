@@ -23,7 +23,12 @@ export const useClusters = () => {
     const runMux = () => {
       unsubscribe = watchMux.subscribeKind(watchMux.HUB_SCOPE, "clusters", (ev) => {
         if (stopped) return;
-        if (ev.type === "CLUSTER" && ev.event) {
+        if (ev.type === "SYNC" && ev.synced) {
+          // End of the initial batch. Fires even when the list is empty, which
+          // is how a user with no cluster grants escapes the loading state.
+          setLoaded(true);
+          setError(null);
+        } else if (ev.type === "CLUSTER" && ev.event) {
           try {
             const e = fromJson(ClusterEventSchema, ev.event as JsonValue, { ignoreUnknownFields: true });
             if (e.cluster) apply(e.type, e.cluster);
