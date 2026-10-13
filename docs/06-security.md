@@ -73,7 +73,8 @@ Enforcement matrix:
 | Request | Needs | Namespace checked |
 |---|---|---|
 | `ListClusters`, `WatchClusters` | any grant (filtered per cluster) | no |
-| `GetCluster`, `Discover`, `GetCatalog`, `AccessReview` | grant on the cluster | no (no object data) |
+| `GetCluster`, `Discover`, `AccessReview` | grant on the cluster | no (cluster metadata or permission questions) |
+| `GetCatalog`, `WatchCatalog` | grant on the cluster | catalog entries filtered to grant namespaces |
 | `List`, `Get`, `Watch`, `Logs`, `GetMetrics`, Helm reads | grant | yes |
 | `Apply`, `Patch`, `Delete`, `Scale`, `RolloutRestart` | grant with `operator`+ | yes |
 | `/ws/.../exec` | grant with `operator`+ (exec can change anything) | yes |
