@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels: {{- include "kmate-hub.labels" . | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  maxUnavailable: {{ dig "maxUnavailable" 1 .Values.podDisruptionBudget }}
   selector:
     matchLabels: {{- include "kmate-hub.selectorLabels" . | nindent 6 }}
 {{- end }}

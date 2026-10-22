@@ -148,8 +148,11 @@ Two levers reduce the footprint directly:
   watch and torn down after ten minutes idle, so nobody pays for CRDs they never
   open.
 
-A `PodDisruptionBudget` ships enabled by default, because a node drain that
-evicts the agent blanks the cluster in the UI until it comes back.
+The chart enables a `PodDisruptionBudget` with `maxUnavailable: 1` by default.
+With the single agent replica, this allows voluntary eviction so the agent's PDB
+does not block node drains, GKE upgrades or cluster-autoscaler scale-down. It does
+not guarantee uninterrupted availability: during node replacement, expect a brief
+"cluster offline" period in KMate while the agent is rescheduled and reconnects.
 
 ## Failure behaviour
 
