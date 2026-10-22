@@ -77,10 +77,13 @@ host (phase 5). Not set up in this reference deployment.
 
 ## Resources and disruption
 
-Both charts ship a `PodDisruptionBudget` with `minAvailable: 1`. This matters
-more than it looks: a node drain that evicts the agent blanks the whole cluster
-in the UI until it is rescheduled, because every request for that cluster goes
-through it.
+Both charts enable a `PodDisruptionBudget` with `maxUnavailable: 1` by default.
+The agent and hub each run one replica, so their PDBs allow that replica to be
+voluntarily evicted during node drains, GKE upgrades and cluster-autoscaler
+scale-down. This does not guarantee uptime: during node replacement, expect a
+brief "cluster offline" period in KMate while the agent is rescheduled and
+reconnects. If the hub's node is replaced, its UI and API are unavailable until
+the hub returns.
 
 The agent's memory tracks the number of objects in the cluster, not the number of
 viewers, so size it from the object count. The chart defaults to a 2Gi limit;

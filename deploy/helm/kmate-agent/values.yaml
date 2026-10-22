@@ -47,7 +47,9 @@ resources:
 
 podDisruptionBudget:
   enabled: true
-  minAvailable: 1
+  # Not minAvailable: 1. With a single replica that budget can never be met, so
+  # it would block every node drain, GKE upgrade and autoscaler scale-down.
+  maxUnavailable: 1
 
 logLevel: info
 networkPolicy:
