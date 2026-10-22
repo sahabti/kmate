@@ -6,9 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels: {{- include "kmate-agent.labels" . | nindent 4 }}
 spec:
-  # The agent is the only path to this cluster: if it is evicted during a node
-  # drain, KMate shows the cluster as offline until it is rescheduled.
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  maxUnavailable: {{ dig "maxUnavailable" 1 .Values.podDisruptionBudget }}
   selector:
     matchLabels: { app.kubernetes.io/name: kmate-agent }
 {{- end }}
